@@ -847,16 +847,58 @@ body:has(.loginWrap) {
 .navLogout:active{
   transform:translateY(1px);
 }
-/* ===== Mobile scale (уменьшаем интерфейс до ~75%) ===== */
+/* ===== Mobile usability fix (NO zoom / NO scale) ===== */
 @media (max-width: 480px) {
+
   body {
-    zoom: 0.75;                 /* Android, Chrome */
+    font-size: 16px; /* важно для iOS */
   }
 
-  /* iOS Safari fallback */
-  html {
-    transform: scale(0.75);
-    transform-origin: top left;
-    width: 133.3333%;           /* 100 / 0.75 */
+  .container,
+  .card {
+    padding: 16px !important;
+  }
+
+  h1 { font-size: 22px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 18px; }
+
+  label {
+    font-size: 14px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px; /* iOS не зумит */
+    min-height: 44px; /* Apple guideline */
+  }
+
+  select {
+    background-color: #fff;
+  }
+
+  .btn,
+  button {
+    padding: 12px 16px;
+    border-radius: 12px;
+  }
+
+  /* Навигация */
+  .nav {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .nav button {
+    flex: 1 1 auto;
+    min-width: 45%;
+  }
+
+  /* Календарь и доходы */
+  .controls,
+  .filters {
+    gap: 12px;
   }
 }
