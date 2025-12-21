@@ -929,3 +929,29 @@ select:focus {
     font-size: 16px;
   }
 }
+/* ===== FIX: pSelect dropdown items must NOT look like primary buttons ===== */
+.pSelectItem{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+
+  color: var(--text) !important;   /* ← главное */
+  font-weight: 700;
+}
+
+.pSelectItem:hover{
+  background: rgba(14,124,102,.10) !important;
+}
+
+.pSelectItem.active{
+  background: rgba(14,124,102,.16) !important;
+  color: #0f172a !important;
+}
+
+.pSelectBtn{
+  color: var(--text) !important;   /* чтобы выбранное значение тоже было читаемым */
+}
+
+.pSelectBtn .sub{
+  color: var(--muted) !important;
+}
