@@ -58,8 +58,14 @@ function requireAuth(req, res, next) {
   next();
 }
 
-app.use(express.static(path.join(__dirname, "public")));
 app.use(requireAuth);
+app.use(express.static(path.join(__dirname, "public")));
+
+// если заходят на корень сайта — решаем куда
+app.get("/", (req, res) => {
+  if (!isAuthed(req)) return res.redirect("/login.html");
+  return res.redirect("/index.html");
+});
 
 // ===== AUTH ROUTES =====
 app.post("/api/auth/login", async (req, res) => {
