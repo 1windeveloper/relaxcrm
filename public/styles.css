@@ -902,3 +902,30 @@ body:has(.loginWrap) {
     gap: 12px;
   }
 }
+/* ===== Fix: читаемые выпадающие списки (Доходы/Календарь) ===== */
+select {
+  color: #111 !important;
+  background: #fff !important;
+  border: 1px solid rgba(0,0,0,.12);
+  opacity: 1 !important;
+  -webkit-text-fill-color: #111; /* iOS Safari */
+}
+
+/* варианты внутри списка */
+select option {
+  color: #111 !important;
+  background: #fff !important;
+}
+
+/* если у тебя есть "стеклянный/прозрачный" стиль у инпутов */
+select:focus {
+  outline: none;
+  border-color: rgba(0,0,0,.25);
+}
+
+/* на мобилке чтобы iOS не увеличивал страницу при фокусе */
+@media (max-width: 480px) {
+  select, input, textarea, button {
+    font-size: 16px;
+  }
+}
