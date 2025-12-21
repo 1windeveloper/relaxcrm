@@ -1,29 +1,21 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
-
-const { db, initDb, normPhone } = require("./db.js");
-
-initDb();
-
-const app = express();
-app.use(express.json());
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
 
+const { db, initDb, normPhone } = require("./db.js");
+
+const app = express();
+app.use(express.json());
+
 // ===== AUTH CONFIG =====
-// Один логин на всех родителей (пароль хранится ХЭШЕМ)
 const ADMIN_USER = process.env.ADMIN_USER || "parents";
-
-// Сгенерируй хэш один раз (ниже дам как) и вставь в .env
-// пример: $2a$10$...
 const ADMIN_PASS_HASH = process.env.ADMIN_PASS_HASH || "";
-
-// Секрет сессии обязательно в .env
 const SESSION_SECRET = process.env.SESSION_SECRET || "change_me_please";
 
 // cookies + session
-app.set("trust proxy", 1); // важно на хостингах (Render/railway)
+app.set("trust proxy", 1);
 app.use(
   session({
     name: "rbcrm.sid",
@@ -33,28 +25,20 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production", // https
-      maxAge: 1000 * 60 * 60 * 24 * 14, // 14 дней
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 24 * 14,
     },
   })
 );
 
-// helper
 function isAuthed(req) {
   return req.session && req.session.user === "admin";
 }
 
-// middleware: закрываем всё, кроме login и статики
 function requireAuth(req, res, next) {
-  // разрешаем открыть страницу логина и отправить логин
   if (req.path === "/login.html") return next();
   if (req.path === "/api/auth/login") return next();
 
-  // статика (css/js/images)
-  if (req.path.startsWith("/assets") || req.path.startsWith("/css") || req.path.startsWith("/js")) return next();
-  if (req.path.startsWith("/public")) return next();
-
-  // разрешим файлы из public (style.css, app.js и т.д.)
   const isStaticFile =
     req.method === "GET" &&
     (req.path.endsWith(".css") ||
@@ -66,9 +50,7 @@ function requireAuth(req, res, next) {
 
   if (isStaticFile) return next();
 
-  // если не авторизован — на /login.html
   if (!isAuthed(req)) {
-    // для API возвращаем 401 JSON
     if (req.path.startsWith("/api/")) return res.status(401).json({ error: "unauthorized" });
     return res.redirect("/login.html");
   }
@@ -76,6 +58,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
+app.use(express.static(path.join(__dirname, "public")));
 app.use(requireAuth);
 
 // ===== AUTH ROUTES =====
@@ -84,20 +67,16 @@ app.post("/api/auth/login", async (req, res) => {
     const { username = "", password = "" } = req.body || {};
     if (!username || !password) return res.status(400).json({ error: "username and password required" });
 
-    if (!ADMIN_PASS_HASH) {
-      return res.status(500).json({ error: "ADMIN_PASS_HASH is not configured" });
-    }
+    if (!ADMIN_PASS_HASH) return res.status(500).json({ error: "ADMIN_PASS_HASH is not configured" });
 
-    if (String(username) !== String(ADMIN_USER)) {
-      return res.status(401).json({ error: "invalid credentials" });
-    }
+    if (String(username) !== String(ADMIN_USER)) return res.status(401).json({ error: "invalid credentials" });
 
     const ok = await bcrypt.compare(String(password), String(ADMIN_PASS_HASH));
     if (!ok) return res.status(401).json({ error: "invalid credentials" });
 
     req.session.user = "admin";
     res.json({ ok: true });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "server error" });
   }
 });
@@ -112,45 +91,14 @@ app.post("/api/auth/logout", (req, res) => {
 app.get("/api/auth/me", (req, res) => {
   res.json({ ok: true, authed: isAuthed(req) });
 });
-app.use(express.static(path.join(__dirname, "public")));
 
 // ------------------------
 // Helpers
 // ------------------------
-
-// пересечение есть, если (new_check_in < old_check_out) AND (new_check_out > old_check_in)
-// excludeId — чтобы при редактировании не сравнивать с самой собой
-function checkOverlap(check_in, check_out, excludeId = null) {
-  return new Promise((resolve, reject) => {
-    const params = [check_in, check_out];
-    let extra = "";
-
-    if (excludeId) {
-      extra = "AND id <> ?";
-      params.push(Number(excludeId));
-    }
-
-    db.all(
-      `
-      SELECT id, check_in, check_out
-      FROM bookings
-      WHERE booking_status IN ('REQUEST','CONFIRMED')
-        AND (? < check_out)
-        AND (? > check_in)
-        ${extra}
-      `,
-      params,
-      (err, rows) => (err ? reject(err) : resolve(rows))
-    );
-  });
-}
-
 function pickDefined(obj, keys) {
   const out = {};
   for (const k of keys) {
-    if (obj && Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== undefined) {
-      out[k] = obj[k];
-    }
+    if (obj && Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== undefined) out[k] = obj[k];
   }
   return out;
 }
@@ -163,184 +111,203 @@ function normalizeText(s) {
 }
 
 function splitTokens(q) {
-  return normalizeText(q)
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 6);
+  return normalizeText(q).split(" ").filter(Boolean).slice(0, 6);
+}
+
+// пересечение есть, если (new_check_in < old_check_out) AND (new_check_out > old_check_in)
+async function checkOverlap(check_in, check_out, excludeId = null) {
+  const params = [check_in, check_out];
+  let extra = "";
+
+  if (excludeId) {
+    extra = "AND id <> $3";
+    params.push(Number(excludeId));
+  }
+
+  const { rows } = await db.query(
+    `
+    SELECT id, check_in, check_out
+    FROM bookings
+    WHERE booking_status IN ('REQUEST','CONFIRMED')
+      AND ($1 < check_out)
+      AND ($2 > check_in)
+      ${extra}
+    `,
+    params
+  );
+
+  return rows;
 }
 
 // ------------------------
 // API: Guests (list + search)
-// q: ищем по ФИО/IG/телефону (и phone_norm по цифрам)
-// Улучшение: если ввели "иванов иван" — найдёт по словам
 // ------------------------
-app.get("/api/guests", (req, res) => {
-  const qRaw = String(req.query.q || "").trim();
+app.get("/api/guests", async (req, res) => {
+  try {
+    const qRaw = String(req.query.q || "").trim();
 
-  if (!qRaw) {
-    db.all(`SELECT * FROM guests ORDER BY id DESC`, (err, rows) => {
-      if (err) return res.status(500).json({ error: "db error" });
-      res.json(rows);
-    });
-    return;
-  }
+    if (!qRaw) {
+      const { rows } = await db.query(`SELECT * FROM guests ORDER BY id DESC`);
+      return res.json(rows);
+    }
 
-  const qText = normalizeText(qRaw);
-  const tokens = splitTokens(qText);
+    const qText = normalizeText(qRaw);
+    const tokens = splitTokens(qText);
 
-  const qDigits = normPhone(qRaw);
-  const likeDigits = `%${qDigits}%`;
+    const qDigits = normPhone(qRaw);
+    const likeDigits = `%${qDigits}%`;
+    const likeText = `%${qText}%`;
 
-  // full_name: AND по всем токенам
-  const nameConds = tokens.length
-    ? tokens.map(() => `lower(full_name) LIKE ?`).join(" AND ")
-    : "1=1";
-  const nameParams = tokens.map((t) => `%${t}%`);
+    const whereParts = [];
+    const params = [];
+    let idx = 1;
 
-  // общий LIKE для instagram/phone (текст)
-  const likeText = `%${qText}%`;
+    // AND по токенам в full_name
+    if (tokens.length) {
+      for (const t of tokens) {
+        whereParts.push(`lower(full_name) LIKE $${idx++}`);
+        params.push(`%${t}%`);
+      }
+    } else {
+      whereParts.push("1=1");
+    }
 
-  const sql = `
-    SELECT *
-    FROM guests
-    WHERE
-      (
-        (${nameConds})
-        OR lower(instagram) LIKE ?
-        OR lower(phone) LIKE ?
-      )
-      OR (? != '' AND phone_norm LIKE ?)
-    ORDER BY id DESC
-  `;
+    // ig/phone текст
+    const igParam = `$${idx++}`;
+    const phoneParam = `$${idx++}`;
+    params.push(likeText, likeText);
 
-  const params = [
-    ...nameParams,
-    likeText,
-    likeText,
-    qDigits,
-    likeDigits
-  ];
+    // digits
+    const digitsCheck = qDigits ? `OR phone_norm LIKE $${idx++}` : "";
+    if (qDigits) params.push(likeDigits);
 
-  db.all(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: "db error" });
+    const sql = `
+      SELECT *
+      FROM guests
+      WHERE
+        ((${whereParts.join(" AND ")})
+          OR lower(instagram) LIKE ${igParam}
+          OR lower(phone) LIKE ${phoneParam}
+        )
+        ${digitsCheck}
+      ORDER BY id DESC
+    `;
+
+    const { rows } = await db.query(sql, params);
     res.json(rows);
-  });
+  } catch (e) {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
-// API: Guests create
-// ✅ phone_norm UNIQUE => один номер = один аккаунт
+// API: Guests create (phone_norm UNIQUE)
 // ------------------------
-app.post("/api/guests", (req, res) => {
-  const { full_name, phone = "", instagram = "", note = "" } = req.body || {};
-  if (!full_name) return res.status(400).json({ error: "full_name is required" });
+app.post("/api/guests", async (req, res) => {
+  try {
+    const { full_name, phone = "", instagram = "", note = "" } = req.body || {};
+    if (!full_name) return res.status(400).json({ error: "full_name is required" });
 
-  const phoneRaw = String(phone || "").trim();
-  const phoneNorm = normPhone(phoneRaw) || null;
+    const phoneRaw = String(phone || "").trim();
+    const phoneNorm = normPhone(phoneRaw) || null;
 
-  db.run(
-    `INSERT INTO guests(full_name, phone, phone_norm, instagram, note) VALUES (?,?,?,?,?)`,
-    [
+    const q = `
+      INSERT INTO guests(full_name, phone, phone_norm, instagram, note)
+      VALUES ($1,$2,$3,$4,$5)
+      RETURNING id
+    `;
+    const params = [
       String(full_name).trim(),
       phoneRaw,
       phoneNorm,
       String(instagram || "").trim(),
-      String(note || "").trim()
-    ],
-    function (err) {
-      if (err) {
-        const m = String(err.message || "").toLowerCase();
-        if (m.includes("unique") || m.includes("constraint")) {
-          if (phoneNorm) {
-            db.get(
-              `SELECT id, full_name, phone FROM guests WHERE phone_norm = ? LIMIT 1`,
-              [phoneNorm],
-              (e2, row) => {
-                if (e2) return res.status(409).json({ error: "phone duplicate" });
-                if (row) {
-                  return res.status(409).json({
-                    error: "phone duplicate",
-                    existing: { id: row.id, full_name: row.full_name, phone: row.phone }
-                  });
-                }
-                return res.status(409).json({ error: "phone duplicate" });
-              }
-            );
-            return;
-          }
-          return res.status(409).json({ error: "phone duplicate" });
+      String(note || "").trim(),
+    ];
+
+    const r = await db.query(q, params);
+    res.json({ ok: true, id: r.rows[0].id });
+  } catch (e) {
+    // уникальный конфликт
+    if (e && e.code === "23505") {
+      const phoneNorm = normPhone(req.body?.phone || "") || null;
+      if (phoneNorm) {
+        const ex = await db.query(`SELECT id, full_name, phone FROM guests WHERE phone_norm=$1 LIMIT 1`, [phoneNorm]);
+        if (ex.rows[0]) {
+          return res.status(409).json({
+            error: "phone duplicate",
+            existing: { id: ex.rows[0].id, full_name: ex.rows[0].full_name, phone: ex.rows[0].phone },
+          });
         }
-
-        return res.status(500).json({ error: "db error" });
       }
-
-      res.json({ ok: true, id: this.lastID });
+      return res.status(409).json({ error: "phone duplicate" });
     }
-  );
+
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
 // API: Guest bookings (history + totals)
-// Требование: CANCELLED показываем, но суммы по нему = 0 в итогах
 // ------------------------
-app.get("/api/guests/:id/bookings", (req, res) => {
-  const id = Number(req.params.id);
-  if (!id) return res.status(400).json({ error: "id is required" });
+app.get("/api/guests/:id/bookings", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: "id is required" });
 
-  db.get(
-    `SELECT id, full_name, phone, phone_norm, instagram, note FROM guests WHERE id = ?`,
-    [id],
-    (err1, guest) => {
-      if (err1) return res.status(500).json({ error: "db error" });
-      if (!guest) return res.status(404).json({ error: "guest not found" });
+    const g = await db.query(
+      `SELECT id, full_name, phone, phone_norm, instagram, note FROM guests WHERE id=$1`,
+      [id]
+    );
+    const guest = g.rows[0];
+    if (!guest) return res.status(404).json({ error: "guest not found" });
 
-      db.all(
-        `
-        SELECT b.*, g.full_name, g.phone
-        FROM bookings b
-        JOIN guests g ON g.id = b.guest_id
-        WHERE b.guest_id = ?
-        ORDER BY b.check_in DESC
-        `,
-        [id],
-        (err2, rows) => {
-          if (err2) return res.status(500).json({ error: "db error" });
+    const b = await db.query(
+      `
+      SELECT b.*, g.full_name, g.phone
+      FROM bookings b
+      JOIN guests g ON g.id = b.guest_id
+      WHERE b.guest_id = $1
+      ORDER BY b.check_in DESC
+      `,
+      [id]
+    );
 
-          // ✅ totals исключают CANCELLED
-          const activeRows = rows.filter(r => String(r.booking_status) !== "CANCELLED");
-          const total = activeRows.reduce((s, r) => s + Number(r.price_total || 0), 0);
-          const prepay = activeRows.reduce((s, r) => s + Number(r.prepayment || 0), 0);
+    const rows = b.rows;
 
-          res.json({
-            guest,
-            guest_id: id,
-            count: rows.length, // показываем все (включая отмены)
-            total,
-            prepayment: prepay,
-            bookings: rows
-          });
-        }
-      );
-    }
-  );
+    const activeRows = rows.filter((r) => String(r.booking_status) !== "CANCELLED");
+    const total = activeRows.reduce((s, r) => s + Number(r.price_total || 0), 0);
+    const prepay = activeRows.reduce((s, r) => s + Number(r.prepayment || 0), 0);
+
+    res.json({
+      guest,
+      guest_id: id,
+      count: rows.length,
+      total,
+      prepayment: prepay,
+      bookings: rows,
+    });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
 // API: Bookings list
 // ------------------------
-app.get("/api/bookings", (req, res) => {
-  db.all(
-    `
-    SELECT b.*, g.full_name, g.phone
-    FROM bookings b
-    JOIN guests g ON g.id = b.guest_id
-    ORDER BY b.check_in ASC
-    `,
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: "db error" });
-      res.json(rows);
-    }
-  );
+app.get("/api/bookings", async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `
+      SELECT b.*, g.full_name, g.phone
+      FROM bookings b
+      JOIN guests g ON g.id = b.guest_id
+      ORDER BY b.check_in ASC
+      `
+    );
+    res.json(rows);
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
@@ -358,7 +325,7 @@ app.post("/api/bookings", async (req, res) => {
       payment_status = "PARTIAL",
       booking_status = "REQUEST",
       source = "",
-      notes = ""
+      notes = "",
     } = req.body || {};
 
     if (!guest_id) return res.status(400).json({ error: "guest_id is required" });
@@ -368,11 +335,15 @@ app.post("/api/bookings", async (req, res) => {
     const overlaps = await checkOverlap(check_in, check_out);
     if (overlaps.length) return res.status(409).json({ error: "dates overlap", overlaps });
 
-    db.run(
-      `INSERT INTO bookings(
+    const r = await db.query(
+      `
+      INSERT INTO bookings(
         guest_id, check_in, check_out, guests_count,
         price_total, prepayment, payment_status, booking_status, source, notes
-      ) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      RETURNING id
+      `,
       [
         Number(guest_id),
         check_in,
@@ -383,14 +354,12 @@ app.post("/api/bookings", async (req, res) => {
         String(payment_status || "UNPAID"),
         String(booking_status || "REQUEST"),
         String(source || "").trim(),
-        String(notes || "").trim()
-      ],
-      function (err) {
-        if (err) return res.status(500).json({ error: "db error" });
-        res.json({ ok: true, id: this.lastID });
-      }
+        String(notes || "").trim(),
+      ]
     );
-  } catch (e) {
+
+    res.json({ ok: true, id: r.rows[0].id });
+  } catch {
     res.status(500).json({ error: "server error" });
   }
 });
@@ -398,16 +367,18 @@ app.post("/api/bookings", async (req, res) => {
 // ------------------------
 // API: Booking status patch
 // ------------------------
-app.patch("/api/bookings/:id/status", (req, res) => {
-  const id = Number(req.params.id);
-  const { booking_status } = req.body || {};
-  const allowed = ["REQUEST", "CONFIRMED", "CANCELLED", "COMPLETED"];
-  if (!allowed.includes(booking_status)) return res.status(400).json({ error: "invalid booking_status" });
+app.patch("/api/bookings/:id/status", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { booking_status } = req.body || {};
+    const allowed = ["REQUEST", "CONFIRMED", "CANCELLED", "COMPLETED"];
+    if (!allowed.includes(booking_status)) return res.status(400).json({ error: "invalid booking_status" });
 
-  db.run(`UPDATE bookings SET booking_status = ? WHERE id = ?`, [booking_status, id], (err) => {
-    if (err) return res.status(500).json({ error: "db error" });
+    await db.query(`UPDATE bookings SET booking_status=$1 WHERE id=$2`, [booking_status, id]);
     res.json({ ok: true });
-  });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
@@ -435,20 +406,20 @@ app.put("/api/bookings/:id", async (req, res) => {
     const overlaps = await checkOverlap(b.check_in, b.check_out, id);
     if (overlaps.length) return res.status(409).json({ error: "dates overlap", overlaps });
 
-    db.run(
+    await db.query(
       `
       UPDATE bookings SET
-        guest_id = ?,
-        check_in = ?,
-        check_out = ?,
-        guests_count = ?,
-        price_total = ?,
-        prepayment = ?,
-        payment_status = ?,
-        booking_status = ?,
-        source = ?,
-        notes = ?
-      WHERE id = ?
+        guest_id=$1,
+        check_in=$2,
+        check_out=$3,
+        guests_count=$4,
+        price_total=$5,
+        prepayment=$6,
+        payment_status=$7,
+        booking_status=$8,
+        source=$9,
+        notes=$10
+      WHERE id=$11
       `,
       [
         Number(b.guest_id),
@@ -461,14 +432,12 @@ app.put("/api/bookings/:id", async (req, res) => {
         booking_status,
         String(b.source || "").trim(),
         String(b.notes || "").trim(),
-        id
-      ],
-      function (err) {
-        if (err) return res.status(500).json({ error: "db error" });
-        res.json({ ok: true });
-      }
+        id,
+      ]
     );
-  } catch (e) {
+
+    res.json({ ok: true });
+  } catch {
     res.status(500).json({ error: "server error" });
   }
 });
@@ -476,366 +445,350 @@ app.put("/api/bookings/:id", async (req, res) => {
 // ------------------------
 // API: Booking partial update
 // ------------------------
-app.patch("/api/bookings/:id", (req, res) => {
-  const id = Number(req.params.id);
-  if (!id) return res.status(400).json({ error: "id is required" });
+app.patch("/api/bookings/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: "id is required" });
 
-  const body = req.body || {};
-  const allowedFields = [
-    "guest_id",
-    "check_in",
-    "check_out",
-    "guests_count",
-    "price_total",
-    "prepayment",
-    "payment_status",
-    "booking_status",
-    "source",
-    "notes"
-  ];
+    const allowedFields = [
+      "guest_id",
+      "check_in",
+      "check_out",
+      "guests_count",
+      "price_total",
+      "prepayment",
+      "payment_status",
+      "booking_status",
+      "source",
+      "notes",
+    ];
 
-  const patch = pickDefined(body, allowedFields);
-  const keys = Object.keys(patch);
-  if (!keys.length) return res.status(400).json({ error: "no fields to update" });
+    const patch = pickDefined(req.body || {}, allowedFields);
+    const keys = Object.keys(patch);
+    if (!keys.length) return res.status(400).json({ error: "no fields to update" });
 
-  const allowedBooking = ["REQUEST", "CONFIRMED", "CANCELLED", "COMPLETED"];
-  const allowedPay = ["UNPAID", "PARTIAL", "PAID"];
+    const allowedBooking = ["REQUEST", "CONFIRMED", "CANCELLED", "COMPLETED"];
+    const allowedPay = ["UNPAID", "PARTIAL", "PAID"];
 
-  if (patch.booking_status && !allowedBooking.includes(String(patch.booking_status))) {
-    return res.status(400).json({ error: "invalid booking_status" });
-  }
-  if (patch.payment_status && !allowedPay.includes(String(patch.payment_status))) {
-    return res.status(400).json({ error: "invalid payment_status" });
-  }
+    if (patch.booking_status && !allowedBooking.includes(String(patch.booking_status))) {
+      return res.status(400).json({ error: "invalid booking_status" });
+    }
+    if (patch.payment_status && !allowedPay.includes(String(patch.payment_status))) {
+      return res.status(400).json({ error: "invalid payment_status" });
+    }
 
-  const needDatesCheck = patch.check_in !== undefined || patch.check_out !== undefined;
+    // если меняем даты — проверим пересечения
+    const needDatesCheck = patch.check_in !== undefined || patch.check_out !== undefined;
 
-  function runUpdate(finalPatch) {
-    const cols = Object.keys(finalPatch);
-    const setSql = cols.map(c => `${c} = ?`).join(", ");
-    const params = cols.map(c => finalPatch[c]).concat([id]);
+    if (needDatesCheck) {
+      const cur = await db.query(`SELECT check_in, check_out FROM bookings WHERE id=$1`, [id]);
+      const row = cur.rows[0];
+      if (!row) return res.status(404).json({ error: "booking not found" });
 
-    db.run(`UPDATE bookings SET ${setSql} WHERE id = ?`, params, (err) => {
-      if (err) return res.status(500).json({ error: "db error" });
-      res.json({ ok: true });
-    });
-  }
+      const nextCheckIn = patch.check_in !== undefined ? patch.check_in : row.check_in;
+      const nextCheckOut = patch.check_out !== undefined ? patch.check_out : row.check_out;
 
-  if (!needDatesCheck) {
-    return runUpdate(patch);
-  }
+      if (!nextCheckIn || !nextCheckOut) return res.status(400).json({ error: "check_in/check_out required" });
+      if (nextCheckIn >= nextCheckOut) return res.status(400).json({ error: "check_out must be after check_in" });
 
-  db.get(`SELECT check_in, check_out FROM bookings WHERE id = ?`, [id], async (err, row) => {
-    if (err) return res.status(500).json({ error: "db error" });
-    if (!row) return res.status(404).json({ error: "booking not found" });
-
-    const nextCheckIn = patch.check_in !== undefined ? patch.check_in : row.check_in;
-    const nextCheckOut = patch.check_out !== undefined ? patch.check_out : row.check_out;
-
-    if (!nextCheckIn || !nextCheckOut) return res.status(400).json({ error: "check_in/check_out required" });
-    if (nextCheckIn >= nextCheckOut) return res.status(400).json({ error: "check_out must be after check_in" });
-
-    try {
       const overlaps = await checkOverlap(nextCheckIn, nextCheckOut, id);
       if (overlaps.length) return res.status(409).json({ error: "dates overlap", overlaps });
 
-      runUpdate({ ...patch, check_in: nextCheckIn, check_out: nextCheckOut });
-    } catch (e) {
-      res.status(500).json({ error: "server error" });
+      patch.check_in = nextCheckIn;
+      patch.check_out = nextCheckOut;
     }
-  });
-});
 
+    // строим UPDATE динамически
+    const cols = Object.keys(patch);
+    const setSql = cols.map((c, i) => `${c}=$${i + 1}`).join(", ");
+    const params = cols.map((c) => patch[c]);
+    params.push(id);
+
+    await db.query(`UPDATE bookings SET ${setSql} WHERE id=$${params.length}`, params);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
+});
 
 // ------------------------
 // API: Booking cancel
-// ✅ запись остается, статус CANCELLED, но деньги обнуляем
 // ------------------------
-app.patch("/api/bookings/:id/cancel", (req, res) => {
-  const id = Number(req.params.id);
-  if (!id) return res.status(400).json({ error: "id is required" });
+app.patch("/api/bookings/:id/cancel", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: "id is required" });
 
-  db.run(
-    `UPDATE bookings
-     SET booking_status='CANCELLED',
-         price_total=0,
-         prepayment=0,
-         payment_status='UNPAID'
-     WHERE id=?`,
-    [id],
-    (err) => {
-      if (err) return res.status(500).json({ error: "db error" });
-      res.json({ ok: true });
-    }
-  );
+    await db.query(
+      `
+      UPDATE bookings
+      SET booking_status='CANCELLED',
+          price_total=0,
+          prepayment=0,
+          payment_status='UNPAID'
+      WHERE id=$1
+      `,
+      [id]
+    );
+
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
 // API: Expenses
 // ------------------------
-app.get("/api/expenses", (req, res) => {
-  db.all(`SELECT * FROM expenses ORDER BY exp_date DESC, id DESC`, (err, rows) => {
-    if (err) return res.status(500).json({ error: "db error" });
+app.get("/api/expenses", async (req, res) => {
+  try {
+    const { rows } = await db.query(`SELECT * FROM expenses ORDER BY exp_date DESC, id DESC`);
     res.json(rows);
-  });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
-app.post("/api/expenses", (req, res) => {
-  const { exp_date, category, amount = 0, note = "" } = req.body || {};
-  if (!exp_date) return res.status(400).json({ error: "exp_date is required" });
-  if (!category) return res.status(400).json({ error: "category is required" });
+app.post("/api/expenses", async (req, res) => {
+  try {
+    const { exp_date, category, amount = 0, note = "" } = req.body || {};
+    if (!exp_date) return res.status(400).json({ error: "exp_date is required" });
+    if (!category) return res.status(400).json({ error: "category is required" });
 
-  db.run(
-    `INSERT INTO expenses(exp_date, category, amount, note) VALUES (?,?,?,?)`,
-    [exp_date, String(category).trim(), Number(amount || 0), String(note || "").trim()],
-    function (err) {
-      if (err) return res.status(500).json({ error: "db error" });
-      res.json({ ok: true, id: this.lastID });
-    }
-  );
+    const r = await db.query(
+      `INSERT INTO expenses(exp_date, category, amount, note) VALUES ($1,$2,$3,$4) RETURNING id`,
+      [exp_date, String(category).trim(), Number(amount || 0), String(note || "").trim()]
+    );
+
+    res.json({ ok: true, id: r.rows[0].id });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
-app.delete("/api/expenses/:id", (req, res) => {
-  const id = Number(req.params.id);
-  db.run(`DELETE FROM expenses WHERE id = ?`, [id], (err) => {
-    if (err) return res.status(500).json({ error: "db error" });
+app.delete("/api/expenses/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await db.query(`DELETE FROM expenses WHERE id=$1`, [id]);
     res.json({ ok: true });
-  });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
 // API: Stats (revenue/expenses/net)
-// month: YYYY-MM; если нет — всё время
+// month: YYYY-MM (фильтр по первым 7 символам)
 // ------------------------
-app.get("/api/stats", (req, res) => {
-  const { month } = req.query;
+app.get("/api/stats", async (req, res) => {
+  try {
+    const month = String(req.query.month || "").trim();
 
-  const monthFilterBookings = month ? `AND substr(check_in,1,7) = ?` : "";
-  const monthFilterExpenses = month ? `AND substr(exp_date,1,7) = ?` : "";
+    const bSql = month
+      ? `SELECT COALESCE(SUM(price_total),0) AS revenue
+         FROM bookings
+         WHERE booking_status <> 'CANCELLED' AND substring(check_in,1,7) = $1`
+      : `SELECT COALESCE(SUM(price_total),0) AS revenue
+         FROM bookings
+         WHERE booking_status <> 'CANCELLED'`;
 
-  const paramsB = month ? [month] : [];
-  const paramsE = month ? [month] : [];
-
-  db.get(
-    `SELECT COALESCE(SUM(price_total),0) AS revenue
-     FROM bookings
-     WHERE booking_status != 'CANCELLED'
-     ${monthFilterBookings}`,
-    paramsB,
-    (err, b) => {
-      if (err) return res.status(500).json({ error: "db error" });
-
-      db.get(
-        `SELECT COALESCE(SUM(amount),0) AS expenses
+    const eSql = month
+      ? `SELECT COALESCE(SUM(amount),0) AS expenses
          FROM expenses
-         WHERE 1=1
-         ${monthFilterExpenses}`,
-        paramsE,
-        (err2, e) => {
-          if (err2) return res.status(500).json({ error: "db error" });
+         WHERE substring(exp_date,1,7) = $1`
+      : `SELECT COALESCE(SUM(amount),0) AS expenses
+         FROM expenses`;
 
-          const revenue = Number(b?.revenue || 0);
-          const expenses = Number(e?.expenses || 0);
+    const b = month ? await db.query(bSql, [month]) : await db.query(bSql);
+    const e = month ? await db.query(eSql, [month]) : await db.query(eSql);
 
-          res.json({
-            month: month || null,
-            revenue,
-            expenses,
-            net: revenue - expenses
-          });
-        }
-      );
-    }
-  );
+    const revenue = Number(b.rows[0]?.revenue || 0);
+    const expenses = Number(e.rows[0]?.expenses || 0);
+
+    res.json({ month: month || null, revenue, expenses, net: revenue - expenses });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
-// Finance: revenue-by-month
+// Finance: revenue-by-month (по году)
 // ------------------------
-app.get("/api/revenue-by-month", (req, res) => {
-  const year = Number(req.query.year);
-  if (!year || year < 2000 || year > 2100) {
-    return res.status(400).json({ error: "year is required" });
-  }
+app.get("/api/revenue-by-month", async (req, res) => {
+  try {
+    const year = Number(req.query.year);
+    if (!year || year < 2000 || year > 2100) return res.status(400).json({ error: "year is required" });
 
-  db.all(
-    `
-    SELECT strftime('%m', check_in) AS m,
-           SUM(price_total) AS revenue
-    FROM bookings
-    WHERE booking_status IN ('CONFIRMED','COMPLETED')
-      AND strftime('%Y', check_in) = ?
-    GROUP BY m
-    ORDER BY m
-    `,
-    [String(year)],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: "db error" });
+    const y = String(year);
 
-      const out = Array.from({ length: 12 }, (_, i) => ({
-        month: String(i + 1).padStart(2, "0"),
-        revenue: 0
-      }));
+    const { rows } = await db.query(
+      `
+      SELECT substring(check_in,6,2) AS m,
+             SUM(price_total) AS revenue
+      FROM bookings
+      WHERE booking_status IN ('CONFIRMED','COMPLETED')
+        AND substring(check_in,1,4) = $1
+      GROUP BY m
+      ORDER BY m
+      `,
+      [y]
+    );
 
-      for (const r of rows) {
-        const idx = Number(r.m) - 1;
-        if (idx >= 0 && idx < 12) out[idx].revenue = Number(r.revenue || 0);
-      }
+    const out = Array.from({ length: 12 }, (_, i) => ({
+      month: String(i + 1).padStart(2, "0"),
+      revenue: 0,
+    }));
 
-      res.json({ year, months: out });
+    for (const r of rows) {
+      const idx = Number(r.m) - 1;
+      if (idx >= 0 && idx < 12) out[idx].revenue = Number(r.revenue || 0);
     }
-  );
+
+    res.json({ year, months: out });
+  } catch {
+    res.status(500).json({ error: "db error" });
+  }
 });
 
 // ------------------------
 // Finance: profit-by-month (revenue/expenses/net)
 // ------------------------
-app.get("/api/profit-by-month", (req, res) => {
-  const year = Number(req.query.year);
-  if (!year || year < 2000 || year > 2100) {
-    return res.status(400).json({ error: "year is required" });
+app.get("/api/profit-by-month", async (req, res) => {
+  try {
+    const year = Number(req.query.year);
+    if (!year || year < 2000 || year > 2100) return res.status(400).json({ error: "year is required" });
+
+    const y = String(year);
+
+    const { rows } = await db.query(
+      `
+      WITH rev AS (
+        SELECT substring(check_in,6,2) AS m,
+               SUM(price_total) AS revenue
+        FROM bookings
+        WHERE booking_status IN ('CONFIRMED','COMPLETED')
+          AND substring(check_in,1,4) = $1
+        GROUP BY m
+      ),
+      exp AS (
+        SELECT substring(exp_date,6,2) AS m,
+               SUM(amount) AS expenses
+        FROM expenses
+        WHERE substring(exp_date,1,4) = $1
+        GROUP BY m
+      )
+      SELECT
+        to_char(gs.n, 'FM00') AS month,
+        COALESCE(rev.revenue, 0) AS revenue,
+        COALESCE(exp.expenses, 0) AS expenses,
+        (COALESCE(rev.revenue, 0) - COALESCE(exp.expenses, 0)) AS net
+      FROM generate_series(1,12) AS gs(n)
+      LEFT JOIN rev ON rev.m = to_char(gs.n, 'FM00')
+      LEFT JOIN exp ON exp.m = to_char(gs.n, 'FM00')
+      ORDER BY gs.n
+      `,
+      [y]
+    );
+
+    res.json({
+      year,
+      months: rows.map((r) => ({
+        month: r.month,
+        revenue: Number(r.revenue || 0),
+        expenses: Number(r.expenses || 0),
+        net: Number(r.net || 0),
+      })),
+    });
+  } catch {
+    res.status(500).json({ error: "db error" });
   }
-
-  const y = String(year);
-
-  db.all(
-    `
-    WITH rev AS (
-      SELECT strftime('%m', check_in) AS m,
-             SUM(price_total) AS revenue
-      FROM bookings
-      WHERE booking_status IN ('CONFIRMED','COMPLETED')
-        AND strftime('%Y', check_in) = ?
-      GROUP BY m
-    ),
-    exp AS (
-      SELECT strftime('%m', exp_date) AS m,
-             SUM(amount) AS expenses
-      FROM expenses
-      WHERE strftime('%Y', exp_date) = ?
-      GROUP BY m
-    )
-    SELECT
-      printf('%02d', n) AS month,
-      COALESCE(rev.revenue, 0) AS revenue,
-      COALESCE(exp.expenses, 0) AS expenses,
-      (COALESCE(rev.revenue, 0) - COALESCE(exp.expenses, 0)) AS net
-    FROM (
-      SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-      UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8
-      UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
-    ) m
-    LEFT JOIN rev ON rev.m = printf('%02d', m.n)
-    LEFT JOIN exp ON exp.m = printf('%02d', m.n)
-    ORDER BY m.n
-    `,
-    [y, y],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: "db error" });
-
-      res.json({
-        year,
-        months: rows.map(r => ({
-          month: r.month,
-          revenue: Number(r.revenue || 0),
-          expenses: Number(r.expenses || 0),
-          net: Number(r.net || 0)
-        }))
-      });
-    }
-  );
 });
 
 // ------------------------
 // CSV export by year
 // ------------------------
-app.get("/api/export/year.csv", (req, res) => {
-  const year = Number(req.query.year);
-  if (!year || year < 2000 || year > 2100) {
-    return res.status(400).send("year is required");
-  }
+app.get("/api/export/year.csv", async (req, res) => {
+  try {
+    const year = Number(req.query.year);
+    if (!year || year < 2000 || year > 2100) return res.status(400).send("year is required");
 
-  const y = String(year);
+    const y = String(year);
 
-  db.get(
-    `
-    SELECT SUM(price_total) AS revenue
-    FROM bookings
-    WHERE booking_status IN ('CONFIRMED','COMPLETED')
-      AND strftime('%Y', check_in) = ?
-    `,
-    [y],
-    (err1, r1) => {
-      if (err1) return res.status(500).send("db error");
+    const r1 = await db.query(
+      `
+      SELECT COALESCE(SUM(price_total),0) AS revenue
+      FROM bookings
+      WHERE booking_status IN ('CONFIRMED','COMPLETED')
+        AND substring(check_in,1,4) = $1
+      `,
+      [y]
+    );
 
-      db.get(
-        `
-        SELECT SUM(amount) AS expenses
+    const r2 = await db.query(
+      `
+      SELECT COALESCE(SUM(amount),0) AS expenses
+      FROM expenses
+      WHERE substring(exp_date,1,4) = $1
+      `,
+      [y]
+    );
+
+    const revenue = Number(r1.rows[0]?.revenue || 0);
+    const expenses = Number(r2.rows[0]?.expenses || 0);
+    const net = revenue - expenses;
+
+    const byMonth = await db.query(
+      `
+      WITH rev AS (
+        SELECT substring(check_in,6,2) AS m,
+               SUM(price_total) AS v
+        FROM bookings
+        WHERE booking_status IN ('CONFIRMED','COMPLETED')
+          AND substring(check_in,1,4) = $1
+        GROUP BY m
+      ),
+      exp AS (
+        SELECT substring(exp_date,6,2) AS m,
+               SUM(amount) AS v
         FROM expenses
-        WHERE strftime('%Y', exp_date) = ?
-        `,
-        [y],
-        (err2, r2) => {
-          if (err2) return res.status(500).send("db error");
+        WHERE substring(exp_date,1,4) = $1
+        GROUP BY m
+      )
+      SELECT
+        to_char(gs.n, 'FM00') AS month,
+        COALESCE(rev.v, 0) AS revenue,
+        COALESCE(exp.v, 0) AS expenses,
+        (COALESCE(rev.v,0) - COALESCE(exp.v,0)) AS net
+      FROM generate_series(1,12) AS gs(n)
+      LEFT JOIN rev ON rev.m = to_char(gs.n, 'FM00')
+      LEFT JOIN exp ON exp.m = to_char(gs.n, 'FM00')
+      ORDER BY gs.n
+      `,
+      [y]
+    );
 
-          const revenue = Number(r1?.revenue || 0);
-          const expenses = Number(r2?.expenses || 0);
-          const net = revenue - expenses;
+    const header = "year,month,revenue,expenses,net\n";
+    const lines = byMonth.rows.map(
+      (r) => `${year},${r.month},${Number(r.revenue)},${Number(r.expenses)},${Number(r.net)}`
+    );
+    lines.push(`${year},TOTAL,${revenue},${expenses},${net}`);
 
-          db.all(
-            `
-            WITH rev AS (
-              SELECT strftime('%m', check_in) AS m, SUM(price_total) AS v
-              FROM bookings
-              WHERE booking_status IN ('CONFIRMED','COMPLETED')
-                AND strftime('%Y', check_in) = ?
-              GROUP BY m
-            ),
-            exp AS (
-              SELECT strftime('%m', exp_date) AS m, SUM(amount) AS v
-              FROM expenses
-              WHERE strftime('%Y', exp_date) = ?
-              GROUP BY m
-            )
-            SELECT
-              printf('%02d', n) AS month,
-              COALESCE(rev.v, 0) AS revenue,
-              COALESCE(exp.v, 0) AS expenses,
-              (COALESCE(rev.v,0) - COALESCE(exp.v,0)) AS net
-            FROM (
-              SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
-              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8
-              UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
-            ) m
-            LEFT JOIN rev ON rev.m = printf('%02d', m.n)
-            LEFT JOIN exp ON exp.m = printf('%02d', m.n)
-            ORDER BY m.n
-            `,
-            [y, y],
-            (err3, rows) => {
-              if (err3) return res.status(500).send("db error");
-
-              const header = "year,month,revenue,expenses,net\n";
-              const lines = rows.map(r =>
-                `${year},${r.month},${Number(r.revenue)},${Number(r.expenses)},${Number(r.net)}`
-              );
-              lines.push(`${year},TOTAL,${revenue},${expenses},${net}`);
-
-              res.setHeader("Content-Type", "text/csv; charset=utf-8");
-              res.setHeader("Content-Disposition", `attachment; filename="relax_${year}.csv"`);
-              res.send(header + lines.join("\n"));
-            }
-          );
-        }
-      );
-    }
-  );
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="relax_${year}.csv"`);
+    res.send(header + lines.join("\n"));
+  } catch {
+    res.status(500).send("db error");
+  }
 });
 
 // ------------------------
-// Start
+// Start (важно: initDb ДО listen)
 // ------------------------
 const PORT = Number(process.env.PORT || 3000);
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Relax Borovoe CRM running: http://localhost:${PORT}`);
-});
+
+(async () => {
+  await initDb();
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Relax Borovoe CRM running: http://localhost:${PORT}`);
+  });
+})();
