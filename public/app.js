@@ -1,20 +1,43 @@
 /* public/app.js */
 /* Non-breaking: всё обёрнуто проверками, если страницы/элемента нет — просто пропускаем */
+async function api(url, options = {}) {
+  const r = await fetch(url, { credentials: "include", ...options });
 
-async function apiGet(url){
-  const r = await fetch(url, { credentials: "include" });
-  if(!r.ok) throw new Error("HTTP " + r.status);
+  // если сессии нет/умерла — на логин
+  if (r.status === 401) {
+    location.replace("/login.html");
+    throw Object.assign(new Error("unauthorized"), { status: 401 });
+  }
+
+  return r;
+}
+
+async function apiGet(url) {
+  const r = await api(url, { method: "GET" });
+
+  if (!r.ok) {
+    throw Object.assign(new Error("HTTP " + r.status), { status: r.status });
+  }
+
   return r.json();
 }
-async function apiSend(url, method, body){
-  const r = await fetch(url, {
+
+async function apiSend(url, method, body) {
+  const r = await api(url, {
     method,
-    credentials: "include",
-    headers: { "Content-Type":"application/json" },
-    body: body ? JSON.stringify(body) : undefined
+    headers: { "Content-Type": "application/json" },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  const data = await r.json().catch(()=> ({}));
-  if(!r.ok) throw Object.assign(new Error(data?.error || ("HTTP " + r.status)), { data, status:r.status });
+
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    throw Object.assign(new Error(data?.error || ("HTTP " + r.status)), {
+      data,
+      status: r.status,
+    });
+  }
+
   return data;
 }
 
@@ -1036,28 +1059,26 @@ function enhancePrettySelects(){
 }
 
 /* init */
-document.addEventListener("DOMContentLoaded", async ()=>{
+document.addEventListener("DOMContentLoaded", async () => {
   setActiveNav();
   enhancePrettySelects();
 
-  try{ await initBookingsPage(); }catch(e){}
-  try{ await initGuestsPage(); }catch(e){}
-  try{ await initCalendarPage(); }catch(e){}
-  try{ await initFinancePage(); }catch(e){}
-  try{ await initExpensesPage(); }catch(e){}
+  try { await initBookingsPage(); } catch (e) {}
+  try { await initGuestsPage(); } catch (e) {}
+  try { await initCalendarPage(); } catch (e) {}
+  try { await initFinancePage(); } catch (e) {}
+  try { await initExpensesPage(); } catch (e) {}
+
   const logoutBtn = document.getElementById("logoutBtn");
-if(logoutBtn){
-  logoutBtn.addEventListener("click", async ()=>{
-    if(!confirm("Выйти из системы?")) return;
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+      if (!confirm("Выйти из системы?")) return;
 
-    try{
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include"
-      });
-    }catch(e){}
+      try {
+        await apiSend("/api/auth/logout", "POST");
+      } catch (e) {}
 
-    location.replace("/login.html");
-  });
-}
+      location.replace("/login.html");
+    });
+  }
 });
