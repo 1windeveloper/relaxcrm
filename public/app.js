@@ -943,15 +943,18 @@ function enhanceSelect(selectEl){
   wrap.appendChild(menu);
 
   function currentLabel(){
-    const opt = selectEl.options[selectEl.selectedIndex];
+    const idx = selectEl.selectedIndex;
+    const opt = idx >= 0 ? selectEl.options[idx] : null;
+    // если ещё не загрузили options — показываем плейсхолдер
     return opt ? opt.textContent : "— выбрать —";
   }
 
   function rebuild(){
-    const cur = String(selectEl.value);
     btn.querySelector(".txt").textContent = currentLabel();
 
+    const cur = String(selectEl.value ?? "");
     menu.innerHTML = "";
+
     Array.from(selectEl.options).forEach((opt) => {
       const item = document.createElement("button");
       item.type = "button";
@@ -986,7 +989,12 @@ function enhanceSelect(selectEl){
     if(!wrap.contains(e.target)) close();
   });
 
+  // ✅ если select меняется обычным способом
   selectEl.addEventListener("change", rebuild);
+
+  // ✅ ВАЖНО: если options добавят ПОЗЖЕ (как у тебя в finance/calendar) — тоже обновить
+  const mo = new MutationObserver(() => rebuild());
+  mo.observe(selectEl, { childList: true, subtree: true });
 
   selectEl.dataset.prettyDone = "1";
   rebuild();
