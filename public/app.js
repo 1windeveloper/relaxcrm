@@ -812,32 +812,59 @@ async function initCalendarPage(){
 
 // =================== FINANCE PAGE ===================
 function drawBarChart(canvas, labels, values){
+  if(!canvas) return;
+
+  // ✅ подгоняем внутренний размер canvas под CSS-размер
+  const w = Math.max(300, canvas.clientWidth || 0);
+  const h = Math.max(180, canvas.clientHeight || 0);
+
+  // чтобы не было размытости на Retina
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+
   const ctx = canvas.getContext("2d");
-  const W = canvas.width;
-  const H = canvas.height;
-  ctx.clearRect(0,0,W,H);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const W = w;
+  const H = h;
+  ctx.clearRect(0, 0, W, H);
 
   const padL = 46, padR = 12, padT = 12, padB = 34;
-  const w = W - padL - padR;
-  const h = H - padT - padB;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
 
-  const maxV = Math.max(1, ...values);
-  const barW = w / values.length;
+  if(!labels?.length || !values?.length){
+    // ось хотя бы покажем
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, padT + plotH);
+    ctx.lineTo(padL + plotW, padT + plotH);
+    ctx.strokeStyle = "#e5e7eb";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    return;
+  }
 
-  ctx.globalAlpha = 0.9;
+  const maxV = Math.max(1, ...values.map(v => Number(v || 0)));
+  const barW = plotW / values.length;
+
+  // оси
   ctx.beginPath();
   ctx.moveTo(padL, padT);
-  ctx.lineTo(padL, padT + h);
-  ctx.lineTo(padL + w, padT + h);
+  ctx.lineTo(padL, padT + plotH);
+  ctx.lineTo(padL + plotW, padT + plotH);
   ctx.strokeStyle = "#e5e7eb";
   ctx.lineWidth = 1;
   ctx.stroke();
 
   for(let i=0;i<values.length;i++){
-    const v = values[i];
-    const bh = (v / maxV) * (h - 8);
+    const v = Number(values[i] || 0);
+    const bh = (v / maxV) * (plotH - 8);
     const x = padL + i * barW + 6;
-    const y = padT + h - bh;
+    const y = padT + plotH - bh;
 
     ctx.fillStyle = "rgba(59,127,106,.75)";
     ctx.fillRect(x, y, Math.max(2, barW - 12), bh);
@@ -845,10 +872,9 @@ function drawBarChart(canvas, labels, values){
     ctx.fillStyle = "#64748b";
     ctx.font = "12px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText(labels[i], x + (barW-12)/2, padT + h + 18);
+    ctx.fillText(labels[i], x + (barW-12)/2, padT + plotH + 18);
   }
 }
-
 async function initFinancePage(){
   const yearPick = $("yearPick");
   const monthPick = $("monthPick");
