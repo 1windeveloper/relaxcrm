@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Доходы — Relax Borovoe CRM</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <div class="topbar topbar--glass">
+    <div class="container nav">
+      <a class="brandLink" href="/index.html">
+        <div class="logoWrap">
+          <img class="logoImg" src="/logo.png" alt="Relax Borovoe"
+               onerror="this.style.display='none'; this.parentElement.classList.add('logoFallback')" />
+          <div class="logoFallbackBadge">RB</div>
+        </div>
+        <div>
+          <b class="brandTitle">Relax Borovoe</b>
+          <div class="small brandSub">CRM • брони • календарь • финансы</div>
+        </div>
+      </a>
+
+      <nav class="navActions">
+  <a class="navItem" href="/bookings.html">Брони</a>
+  <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/finance.html">Доходы</a>
+  <a class="navItem" href="/expenses.html">Расходы</a>
+  <a class="navItem" href="/guests.html">Гости</a>
+
+  <!-- 👇 ВЫХОД -->
+  <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+</nav>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div class="card">
+      <h1 style="margin:0 0 6px;">Доходы</h1>
+      <div class="small" style="margin-bottom:12px;">
+        Выручка берётся из броней. Чистая прибыль = выручка − расходы.
+      </div>
+
+      <hr style="opacity:.35;margin:14px 0;">
+
+      <h3 style="margin:0 0 10px;">Период отчёта</h3>
+
+      <div class="formGrid">
+        <div>
+          <div class="fieldLabel">Год</div>
+          <select id="yearPick"></select>
+        </div>
+
+        <div>
+          <div class="fieldLabel">Месяц</div>
+          <select id="monthPick"></select>
+        </div>
+      </div>
+
+      <div class="checkRow" style="margin-top:10px;">
+        <input id="allTime" type="checkbox" />
+        <label for="allTime">Показать за всё время (без выбора месяца)</label>
+      </div>
+
+      <button id="btnLoadStats" class="primary" style="margin-top:12px;">Показать</button>
+
+      <div id="statsMsg" class="hint" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
+        <h3 style="margin:0;">Итог</h3>
+        <span class="badge ok">Готово</span>
+      </div>
+
+      <div style="margin-top:10px;line-height:1.6;">
+        <div><b>Грязная прибыль (выручка):</b> <span id="rev">0</span> ₸</div>
+        <div><b>Расходы:</b> <span id="exp">0</span> ₸</div>
+        <hr style="opacity:.35;margin:10px 0;">
+        <div><b>Чистая прибыль:</b> <span id="net" class="pos">0</span> ₸</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="min-width:260px;flex:1;">
+          <h3 style="margin:0 0 8px;">График по месяцам</h3>
+          <div class="fieldLabel">Метрика графика</div>
+          <select id="chartMetric">
+            <option value="revenue">Выручка</option>
+            <option value="expenses">Расходы</option>
+            <option value="net">Чистая прибыль</option>
+          </select>
+
+          <div class="small" style="margin-top:8px;opacity:.75;">
+            График обновляется автоматически при переключении.
+          </div>
+        </div>
+
+        <div class="card" style="margin:0;min-width:260px;flex:0 0 320px;">
+          <div class="small">Итого за год</div>
+          <div style="font-size:22px;font-weight:800;margin:2px 0 10px;" id="yearTotal">0 ₸</div>
+          <div class="small">Среднее за месяц</div>
+          <div style="font-size:18px;font-weight:800;margin-top:2px;" id="yearAvg">0 ₸</div>
+          <div class="small" style="margin-top:10px;opacity:.75;">Считается по выбранной метрике графика.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <canvas id="revChart" width="980" height="280" style="width:100%;height:auto;border:1px solid #e5e7eb;border-radius:16px;"></canvas>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button id="btnExport" class="secondary" style="width:auto;">Экспорт в CSV (год)</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

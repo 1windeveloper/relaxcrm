@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Брони — Relax Borovoe CRM</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <div class="topbar topbar--glass">
+    <div class="container nav">
+      <a class="brandLink" href="/index.html">
+        <div class="logoWrap">
+          <img class="logoImg" src="/logo.png" alt="Relax Borovoe"
+               onerror="this.style.display='none'; this.parentElement.classList.add('logoFallback')" />
+          <div class="logoFallbackBadge">RB</div>
+        </div>
+        <div>
+          <b class="brandTitle">Relax Borovoe</b>
+          <div class="small brandSub">CRM • брони • календарь • финансы</div>
+        </div>
+      </a>
+
+     <nav class="navActions">
+  <a class="navItem" href="/bookings.html">Брони</a>
+  <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/finance.html">Доходы</a>
+  <a class="navItem" href="/expenses.html">Расходы</a>
+  <a class="navItem" href="/guests.html">Гости</a>
+
+  <!-- 👇 ВЫХОД -->
+  <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+</nav>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="notice">
+      Подсказка: сначала добавьте гостя или выберите его из списка, затем заполните даты и сохраните бронь.
+    </div>
+
+    <div style="height:12px"></div>
+
+    <div class="card">
+      <h2 style="margin:0 0 6px;">Создание брони</h2>
+      <div class="small">Предоплата по умолчанию: 50 000 ₸</div>
+      <div class="hr"></div>
+
+      <div class="row grid2">
+        <div class="card">
+          <h3 style="margin:0 0 10px;">1) Гость</h3>
+
+          <label>ФИО гостя</label>
+          <input id="g_name" placeholder="Например: Иванов Иван" />
+
+          <label>Телефон</label>
+          <input id="g_phone" placeholder="Например: 8707..." />
+
+          <label>Instagram (если есть)</label>
+          <input id="g_ig" placeholder="@username (необязательно)" />
+
+          <div style="height:10px"></div>
+          <button id="btnAddGuest">Добавить гостя</button>
+          <div class="hint" id="guestMsg"></div>
+
+          <div class="hr"></div>
+
+          <label>Выбрать гостя из списка</label>
+          <select id="guestSelect"></select>
+          <div class="hint">Если гость уже есть, просто выберите его здесь.</div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin:0 0 10px;">2) Бронь</h3>
+
+          <label>Дата заезда</label>
+          <input id="check_in" type="date" />
+
+          <label>Дата выезда</label>
+          <input id="check_out" type="date" />
+
+          <label>Количество гостей</label>
+          <input id="guests_count" type="number" min="1" value="1" />
+
+          <label>Стоимость за весь период (₸)</label>
+          <input id="price_total" type="number" min="0" value="0" />
+
+          <label>Предоплата (₸)</label>
+          <input id="prepayment" type="number" min="0" value="50000" />
+
+          <label>Статус брони</label>
+          <select id="booking_status">
+            <option value="REQUEST">Запрос (ещё не подтверждено)</option>
+            <option value="CONFIRMED">Подтверждено</option>
+          </select>
+
+          <label>Статус оплаты</label>
+          <select id="payment_status">
+            <option value="UNPAID">Не оплачено</option>
+            <option value="PARTIAL">Внесена предоплата</option>
+            <option value="PAID">Оплачено полностью</option>
+          </select>
+
+          <label>Откуда пришёл клиент</label>
+          <input id="source" placeholder="WhatsApp / Instagram" />
+
+          <label>Заметки (по желанию)</label>
+          <textarea id="notes" rows="3" placeholder="Например: приедут вечером, нужен мангал..."></textarea>
+
+          <div style="height:10px"></div>
+          <button id="btnAddBooking">Сохранить бронь</button>
+          <div class="hint" id="bookingMsg"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <h2 style="margin:0;">Список броней</h2>
+        <button id="btnReload" class="secondary" style="max-width:220px;">Обновить список</button>
+      </div>
+
+      <div style="height:10px"></div>
+      <label>Поиск по имени или телефону</label>
+      <input id="filter" placeholder="Введите имя или телефон..." />
+
+      <!-- ✅ НОВОЕ -->
+      <div class="searchMeta">
+        <div class="left">
+          <span class="pillTiny">Найдено: <span id="bookingsFound">0</span></span>
+          <span class="small" id="bookingsHint">Введите имя или телефон</span>
+        </div>
+        <button id="bookingsClear" class="secondary clearBtn" style="display:none;">✕ Очистить</button>
+      </div>
+
+      <div class="hr"></div>
+      <div class="list" id="bookingsList"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+
+  <div id="editModal" class="modal hidden">
+    <div class="modal-content" style="max-width:720px;">
+      <div class="modal-header">
+        <b>Редактирование брони</b>
+        <button id="editClose">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="edit_id" />
+
+        <label>Гость</label>
+        <select id="edit_guest"></select>
+
+        <div class="row grid2">
+          <div>
+            <label>Заезд</label>
+            <input id="edit_in" type="date" />
+          </div>
+          <div>
+            <label>Выезд</label>
+            <input id="edit_out" type="date" />
+          </div>
+        </div>
+
+        <div class="row grid2">
+          <div>
+            <label>Гостей</label>
+            <input id="edit_guests" type="number" min="1" />
+          </div>
+          <div>
+            <label>Стоимость (₸)</label>
+            <input id="edit_total" type="number" min="0" />
+          </div>
+        </div>
+
+        <div class="row grid2">
+          <div>
+            <label>Предоплата (₸)</label>
+            <input id="edit_prepay" type="number" min="0" />
+          </div>
+          <div>
+            <label>Оплата</label>
+            <select id="edit_pay">
+              <option value="UNPAID">Не оплачено</option>
+              <option value="PARTIAL">Внесена предоплата</option>
+              <option value="PAID">Оплачено полностью</option>
+            </select>
+          </div>
+        </div>
+
+        <label>Статус брони</label>
+        <select id="edit_status">
+          <option value="REQUEST">Запрос</option>
+          <option value="CONFIRMED">Подтверждено</option>
+          <option value="CANCELLED">Отменено</option>
+          <option value="COMPLETED">Завершено</option>
+        </select>
+
+        <label>Источник</label>
+        <input id="edit_source" />
+
+        <label>Заметки</label>
+        <textarea id="edit_notes" rows="3"></textarea>
+
+        <div class="hint" id="editMsg"></div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+          <button id="btnCancelBooking" class="secondary danger" style="width:auto;">Отменить бронь</button>
+          <button id="btnSaveEdit" style="width:auto;">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

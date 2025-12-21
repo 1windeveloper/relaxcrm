@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Расходы — Relax Borovoe CRM</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <!-- ✅ Topbar -->
+  <div class="topbar topbar--glass">
+    <div class="container nav">
+      <a class="brandLink" href="/index.html">
+        <div class="logoWrap">
+          <img
+            class="logoImg"
+            src="/logo.png"
+            alt="Relax Borovoe"
+            onerror="this.style.display='none'; this.parentElement.classList.add('logoFallback')" />
+          <div class="logoFallbackBadge">RB</div>
+        </div>
+        <div>
+          <b class="brandTitle">Relax Borovoe</b>
+          <div class="small brandSub">CRM • брони • календарь • финансы</div>
+        </div>
+      </a>
+
+      <nav class="navActions">
+  <a class="navItem" href="/bookings.html">Брони</a>
+  <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/finance.html">Доходы</a>
+  <a class="navItem" href="/expenses.html">Расходы</a>
+  <a class="navItem" href="/guests.html">Гости</a>
+
+  <!-- 👇 ВЫХОД -->
+  <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+</nav>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- ➕ Добавление расхода -->
+    <div class="card">
+      <h2 style="margin:0 0 8px;">Добавить расход</h2>
+      <div class="small">Фиксируйте все траты для корректного расчёта прибыли</div>
+
+      <div class="hr"></div>
+
+      <label>Дата</label>
+      <input id="exp_date" type="date" />
+
+      <label>На что потратили</label>
+      <input id="exp_cat" placeholder="Продукты, уборка, ремонт, реклама…" />
+
+      <label>Сумма (₸)</label>
+      <input id="exp_amount" type="number" min="0" value="0" />
+
+      <label>Комментарий (необязательно)</label>
+      <input id="exp_note" placeholder="Например: купили уголь" />
+
+      <div style="height:12px"></div>
+      <button id="btnAddExpense">Сохранить расход</button>
+      <div class="hint" id="expMsg"></div>
+    </div>
+
+    <div style="height:14px"></div>
+
+    <!-- 📋 Список расходов -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <h2 style="margin:0;">Список расходов</h2>
+        <button id="btnReloadExp" class="secondary" style="max-width:220px;">
+          Обновить
+        </button>
+      </div>
+
+      <div class="hr"></div>
+
+      <!-- список -->
+      <div class="list" id="expList"></div>
+    </div>
+
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

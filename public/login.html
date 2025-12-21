@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Вход • Relax Borovoe CRM</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#f6f7fb;
+    }
+    .loginWrap{max-width:420px;width:100%;padding:0 16px}
+    .loginCard{padding:22px}
+    .loginRow{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+    .loginRow input{width:100%}
+    .loginActions{margin-top:16px}
+    .loginActions button{width:100%}
+    .loginLogo{
+      display:flex;
+      justify-content:center;
+      margin-bottom:14px;
+    }
+    .loginLogo img{
+      height:52px;
+      opacity:.95;
+    }
+  </style>
+</head>
+<body>
+
+<div class="loginWrap">
+  <div class="card loginCard">
+
+    <div class="loginLogo">
+      <img src="/logo.png" alt="Relax Borovoe">
+    </div>
+
+    <h2 style="margin:0 0 6px 0;text-align:center;">🔐 Вход</h2>
+    <div class="small" style="text-align:center;margin-bottom:10px;">
+      Только для семьи (родители)
+    </div>
+
+    <div class="loginRow">
+      <label class="small">Логин</label>
+      <input id="u" value="parents" autocomplete="username">
+    </div>
+
+    <div class="loginRow">
+      <label class="small">Пароль</label>
+      <input id="p" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <div id="m" class="small" style="margin-top:6px"></div>
+
+    <div class="loginActions">
+      <button class="primary" id="btn">Войти</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* если уже залогинен — сразу на главную */
+(async ()=>{
+  try{
+    const r = await fetch("/api/auth/me", { credentials: "include" });
+    const data = await r.json().catch(()=>({}));
+    if(r.ok && data.authed){
+      location.replace("/index.html");
+    }
+  }catch(e){}
+})();
+
+async function login(){
+  const u = document.getElementById("u").value.trim();
+  const p = document.getElementById("p").value;
+  const m = document.getElementById("m");
+  m.textContent = "";
+
+  try{
+    const r = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      credentials: "include",
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+
+    m.textContent = "✅ Вход выполнен";
+    location.replace("/index.html");
+  }catch(e){
+    m.textContent = "❌ " + (e.message || "Ошибка");
+  }
+}
+
+document.getElementById("btn").addEventListener("click", login);
+document.getElementById("p").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") login();
+});
+</script>
+
+</body>
+</html>

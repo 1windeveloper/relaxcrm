@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Гости — Relax Borovoe CRM</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <div class="topbar topbar--glass">
+    <div class="container nav">
+      <a class="brandLink" href="/index.html">
+        <div class="logoWrap">
+          <img class="logoImg" src="/logo.png" alt="Relax Borovoe"
+               onerror="this.style.display='none'; this.parentElement.classList.add('logoFallback')" />
+          <div class="logoFallbackBadge">RB</div>
+        </div>
+        <div>
+          <b class="brandTitle">Relax Borovoe</b>
+          <div class="small brandSub">CRM • брони • календарь • финансы</div>
+        </div>
+      </a>
+
+     <nav class="navActions">
+  <a class="navItem" href="/bookings.html">Брони</a>
+  <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/finance.html">Доходы</a>
+  <a class="navItem" href="/expenses.html">Расходы</a>
+  <a class="navItem" href="/guests.html">Гости</a>
+
+  <!-- 👇 ВЫХОД -->
+  <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+</nav>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0;">Добавить гостя</h2>
+          <div class="small">Гость появится в системе и будет доступен при создании брони.</div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row grid2">
+        <div>
+          <label style="margin-top:0;">ФИО гостя</label>
+          <input id="g_name" placeholder="Например: Иванов Иван" />
+          <div class="hint">Обязательно для создания гостя.</div>
+        </div>
+
+        <div>
+          <label style="margin-top:0;">Телефон</label>
+          <input id="g_phone" placeholder="8707..." />
+          <div class="hint">Можно оставить пустым.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Instagram (если есть)</label>
+          <input id="g_ig" placeholder="@username (необязательно)" />
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px;">
+        <button id="btnAddGuest" style="max-width:260px;">Добавить гостя</button>
+        <div class="hint" id="guestMsg"></div>
+      </div>
+    </div>
+
+    <div style="height:14px;"></div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0;">Все гости</h2>
+          <div class="small">Поиск и история бронирований.</div>
+        </div>
+        <button id="btnReloadGuests" class="secondary" style="max-width:220px;">Обновить</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <label style="margin-top:0;">Поиск</label>
+      <input id="guestSearch" placeholder="ФИО / телефон / Instagram" />
+      <div class="hint">Найдет по части текста.</div>
+
+      <!-- ✅ НОВОЕ -->
+      <div class="searchMeta">
+        <div class="left">
+          <span class="pillTiny">Найдено: <span id="guestsFound">0</span></span>
+          <span class="small" id="guestsHint">Введите имя / телефон / Instagram</span>
+        </div>
+        <button id="guestsClear" class="secondary clearBtn" style="display:none;">✕ Очистить</button>
+      </div>
+
+      <div class="hr"></div>
+      <div class="list" id="guestsList"></div>
+    </div>
+
+  </div>
+
+  <div id="guestHistoryModal" class="modal hidden">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <div>
+          <b id="ghTitle">История гостя</b>
+          <div class="small" id="ghSub"></div>
+        </div>
+        <button id="ghClose" class="secondary" style="width:auto;">Закрыть</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="notice" style="margin-bottom:12px;">
+          Важно: отменённые брони показываются в истории, но <b>в сумму/предоплату не учитываются</b>.
+        </div>
+
+        <div class="row grid2">
+          <div class="card">
+            <div class="small">Броней</div>
+            <b id="ghCount">0</b>
+          </div>
+          <div class="card">
+            <div class="small">Сумма / Предоплата</div>
+            <b><span id="ghTotal">0</span> ₸</b>
+            <div class="small">Предоплата: <b><span id="ghPrepay">0</span> ₸</b></div>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+        <div class="list" id="ghList"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

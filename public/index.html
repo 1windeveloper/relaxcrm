@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relax Borovoe CRM</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="topbar topbar--glass">
+    <div class="container nav">
+      <div class="brand">
+        <div class="logoWrap">
+          <img class="logoImg" src="/logo.png" alt="Relax Borovoe" onerror="this.style.display='none'; this.parentElement.classList.add('logoFallback')" />
+          <div class="logoFallbackBadge">RB</div>
+        </div>
+        <div>
+          <b class="brandTitle">Relax Borovoe CRM</b>
+          <div class="small brandSub">Система бронирований, гостей и финансов</div>
+        </div>
+      </div>
+
+      <nav class="navActions">
+  <a class="navItem" href="/bookings.html">Брони</a>
+  <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/finance.html">Доходы</a>
+  <a class="navItem" href="/expenses.html">Расходы</a>
+  <a class="navItem" href="/guests.html">Гости</a>
+
+  <!-- 👇 ВЫХОД -->
+  <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+</nav>
+    </div>
+  </div>
+
+  <main class="container">
+    <section class="hero">
+      <div class="heroBg"></div>
+
+      <div class="heroLeft">
+        <div class="heroBadge">CRM • Relax Borovoe</div>
+        <h1 class="heroTitle">
+          Управляй бронированиями, гостями и деньгами
+          <span class="heroTitleAccent">в одном месте</span>
+        </h1>
+        <p class="heroText">
+          Быстрый доступ к броням, календарю занятости, расходам и доходности.
+          Всё на SQLite, работает локально и стабильно.
+        </p>
+
+        <div class="heroCtas">
+          <a class="btnPrimary" href="/bookings.html">Открыть брони</a>
+          <a class="btnGhost" href="/calendar.html">Посмотреть календарь</a>
+        </div>
+
+        <div class="heroStats">
+          <div class="stat">
+            <div class="statLabel">Календарь</div>
+            <div class="statValue">Занято / Свободно</div>
+          </div>
+          <div class="stat">
+            <div class="statLabel">Финансы</div>
+            <div class="statValue">Грязная / Чистая</div>
+          </div>
+          <div class="stat">
+            <div class="statLabel">Гости</div>
+            <div class="statValue">Все контакты + ID</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="heroRight">
+        <div class="dashCard">
+          <div class="dashHead">
+            <div class="dashIcon">📌</div>
+            <div>
+              <div class="dashTitle">Быстрые разделы</div>
+              <div class="small">Один клик — и ты внутри</div>
+            </div>
+          </div>
+
+          <div class="quickGrid">
+            <a class="quickItem" href="/bookings.html">
+              <div class="quickTop">
+                <div class="quickEmoji">🧾</div>
+                <div class="quickName">Брони</div>
+              </div>
+              <div class="quickDesc">Список броней, статусы, суммы, предоплаты</div>
+            </a>
+
+            <a class="quickItem" href="/calendar.html">
+              <div class="quickTop">
+                <div class="quickEmoji">📅</div>
+                <div class="quickName">Календарь</div>
+              </div>
+              <div class="quickDesc">Наведи на день — увидишь данные гостя</div>
+            </a>
+
+            <a class="quickItem" href="/finance.html">
+              <div class="quickTop">
+                <div class="quickEmoji">📊</div>
+                <div class="quickName">Доходы</div>
+              </div>
+              <div class="quickDesc">Месяц/год, чистая прибыль, график + экспорт</div>
+            </a>
+
+            <a class="quickItem" href="/expenses.html">
+              <div class="quickTop">
+                <div class="quickEmoji">🧯</div>
+                <div class="quickName">Расходы</div>
+              </div>
+              <div class="quickDesc">Дата, категория, сумма, комментарий</div>
+            </a>
+
+            <a class="quickItem" href="/guests.html">
+              <div class="quickTop">
+                <div class="quickEmoji">👤</div>
+                <div class="quickName">Гости</div>
+              </div>
+              <div class="quickDesc">ФИО, телефон, Instagram, ID</div>
+            </a>
+
+            <div class="quickItem quickItem--info">
+              <div class="quickTop">
+                <div class="quickEmoji">⚡</div>
+                <div class="quickName">Совет</div>
+              </div>
+              <div class="quickDesc">
+                Добавил бронь — обнови «Доходы», график подтянет данные сразу.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footerNote">
+          <span class="dot"></span>
+          <span class="small">Relax Borovoe • локальная CRM • быстрый UI</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
