@@ -955,3 +955,35 @@ select:focus {
 .pSelectBtn .sub{
   color: var(--muted) !important;
 }
+/* ===== Calendar header controls layout (fix "разнобой") ===== */
+.calControls{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.calControls__nav,
+.calControls__pickers{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.calControls button,
+.calControls select{
+  width:auto !important;
+  min-width: 140px;
+}
+
+@media (max-width: 900px){
+  .calControls{
+    justify-content:flex-start;
+  }
+  .calControls button,
+  .calControls select{
+    min-width: 160px;
+  }
+}

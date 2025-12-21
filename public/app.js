@@ -1,5 +1,7 @@
 /* public/app.js */
 /* Non-breaking: всё обёрнуто проверками, если страницы/элемента нет — просто пропускаем */
+
+// =================== API WRAPPERS ===================
 async function api(url, options = {}) {
   const r = await fetch(url, { credentials: "include", ...options });
 
@@ -41,6 +43,7 @@ async function apiSend(url, method, body) {
   return data;
 }
 
+// =================== HELPERS ===================
 function $(id){ return document.getElementById(id); }
 
 function digitsOnly(s){
@@ -86,6 +89,7 @@ function escapeHtml(s){
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#039;");
 }
+
 function highlight(text, q){
   const t = String(text || "");
   const query = String(q || "").trim();
@@ -127,6 +131,7 @@ function uiBookingStatus(code){
   if(c === "CANCELLED") return "Отменено";
   return c;
 }
+
 function uiPaymentStatus(code){
   const c = String(code || "");
   if(c === "UNPAID") return "Не оплачено";
@@ -135,7 +140,7 @@ function uiPaymentStatus(code){
   return c;
 }
 
-/* ------------ BOOKINGS PAGE ------------ */
+// =================== BOOKINGS PAGE ===================
 async function initBookingsPage(){
   const listEl = $("bookingsList");
   if(!listEl) return;
@@ -174,6 +179,7 @@ async function initBookingsPage(){
     if(code === "CANCELLED") return `<span class="badge no">${escapeHtml(uiBookingStatus(code))}</span>`;
     return `<span class="badge wait">${escapeHtml(uiBookingStatus("REQUEST"))}</span>`;
   }
+
   function badgePay(s){
     const code = String(s || "UNPAID");
     if(code === "PAID") return `<span class="badge ok">${escapeHtml(uiPaymentStatus(code))}</span>`;
@@ -397,7 +403,7 @@ async function initBookingsPage(){
   await loadBookings();
 }
 
-/* ------------ GUESTS PAGE ------------ */
+// =================== GUESTS PAGE ===================
 async function initGuestsPage(){
   const listEl = $("guestsList");
   if(!listEl) return;
@@ -564,7 +570,7 @@ async function initGuestsPage(){
   await loadGuests();
 }
 
-/* ------------ CALENDAR PAGE ------------ */
+// =================== CALENDAR PAGE ===================
 async function initCalendarPage(){
   const grid = $("calGrid");
   if(!grid) return;
@@ -618,6 +624,12 @@ async function initCalendarPage(){
     return `${y}-${m}-${day}`;
   }
 
+  // ✅ фикс: режем ISO (2025-12-05T00:00:00.000Z) -> 2025-12-05
+  function dateOnly(v){
+    const s = String(v || "");
+    return s.length >= 10 ? s.slice(0, 10) : s;
+  }
+
   let bookings = [];
 
   async function loadBookings(){
@@ -632,20 +644,23 @@ async function initCalendarPage(){
     return false;
   }
 
+  // ✅ занято: check_in <= day < check_out
+  // бронь 5→7 занимает 5 и 6, а 7 (день выезда) свободно
   function bookingsByDay(dateStr){
-  const day = new Date(dateStr + "T00:00:00");
+    const day = new Date(dateStr + "T00:00:00");
 
-  return bookings.filter(b=>{
-    if (!bookingActiveForCalendar(b)) return false;
+    return bookings.filter(b=>{
+      if(!bookingActiveForCalendar(b)) return false;
 
-    const checkIn  = new Date(b.check_in  + "T00:00:00");
-    const checkOut = new Date(b.check_out + "T00:00:00");
+      const inStr  = dateOnly(b.check_in);
+      const outStr = dateOnly(b.check_out);
 
-    // ✅ день занят, если:
-    // checkIn <= day < checkOut
-    return day >= checkIn && day < checkOut;
-  });
-}
+      const checkIn  = new Date(inStr  + "T00:00:00");
+      const checkOut = new Date(outStr + "T00:00:00");
+
+      return day >= checkIn && day < checkOut;
+    });
+  }
 
   function initials(name){
     const parts = String(name||"").trim().split(/\s+/).filter(Boolean);
@@ -687,7 +702,8 @@ async function initCalendarPage(){
         ? dayBookings.slice(0,4).map(b=>{
             const nm = b.full_name || "";
             const stRu = uiBookingStatus(b.booking_status);
-            return `${nm} • ${stRu} • ${b.check_in}→${b.check_out}`;
+            // ✅ без ...000Z
+            return `${nm} • ${stRu} • ${dateOnly(b.check_in)}→${dateOnly(b.check_out)}`;
           }).join("\n") + (dayBookings.length>4 ? `\n+ ещё ${dayBookings.length-4}` : "")
         : "";
 
@@ -743,7 +759,7 @@ async function initCalendarPage(){
                 <b>${escapeHtml(b.full_name || "")}</b>
                 <span class="badge ${stBadge}">${escapeHtml(uiBookingStatus(st))}</span>
               </div>
-              <div class="small">${escapeHtml(b.check_in)} → ${escapeHtml(b.check_out)} • гостей: <b>${Number(b.guests_count||1)}</b></div>
+              <div class="small">${escapeHtml(dateOnly(b.check_in))} → ${escapeHtml(dateOnly(b.check_out))} • гостей: <b>${Number(b.guests_count||1)}</b></div>
               <div class="small">Сумма: <b>${Number(b.price_total||0).toLocaleString("ru-RU")}</b> ₸</div>
             </div>
           `;
@@ -779,6 +795,7 @@ async function initCalendarPage(){
     curMonth = Number(monthSel.value);
     render();
   });
+
   yearSel?.addEventListener("change", ()=>{
     curYear = Number(yearSel.value);
     render();
@@ -793,7 +810,7 @@ async function initCalendarPage(){
   render();
 }
 
-/* ------------ FINANCE PAGE ------------ */
+// =================== FINANCE PAGE ===================
 function drawBarChart(canvas, labels, values){
   const ctx = canvas.getContext("2d");
   const W = canvas.width;
@@ -931,7 +948,7 @@ async function initFinancePage(){
   await loadChart();
 }
 
-/* ------------ EXPENSES PAGE ------------ */
+// =================== EXPENSES PAGE ===================
 async function initExpensesPage(){
   const listEl = $("expList");
   if(!listEl) return;
@@ -985,7 +1002,7 @@ async function initExpensesPage(){
   await load();
 }
 
-/* ===== Pretty Select (turn native <select> into custom dropdown) ===== */
+// =================== Pretty Select ===================
 function enhanceSelect(selectEl){
   if(!selectEl || selectEl.dataset.prettyDone === "1") return;
 
@@ -1065,7 +1082,7 @@ function enhancePrettySelects(){
   enhanceSelect(document.getElementById("yearSel"));
 }
 
-/* init */
+// =================== INIT ===================
 document.addEventListener("DOMContentLoaded", async () => {
   setActiveNav();
   enhancePrettySelects();

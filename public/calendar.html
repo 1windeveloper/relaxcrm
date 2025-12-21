@@ -23,16 +23,16 @@
         </div>
       </a>
 
-     <nav class="navActions">
-  <a class="navItem" href="/bookings.html">Брони</a>
-  <a class="navItem" href="/calendar.html">Календарь</a>
-  <a class="navItem" href="/finance.html">Доходы</a>
-  <a class="navItem" href="/expenses.html">Расходы</a>
-  <a class="navItem" href="/guests.html">Гости</a>
+      <nav class="navActions">
+        <a class="navItem" href="/bookings.html">Брони</a>
+        <a class="navItem" href="/calendar.html">Календарь</a>
+        <a class="navItem" href="/finance.html">Доходы</a>
+        <a class="navItem" href="/expenses.html">Расходы</a>
+        <a class="navItem" href="/guests.html">Гости</a>
 
-  <!-- 👇 ВЫХОД -->
-  <button id="logoutBtn" class="navLogout">Выйти🔒</button>
-</nav>
+        <!-- 👇 ВЫХОД -->
+        <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+      </nav>
     </div>
   </div>
 
@@ -47,16 +47,22 @@
           </div>
         </div>
 
-        <div class="controls">
-          <button id="prevMonth" class="secondary" style="width:auto;">← Пред. месяц</button>
-          <select id="monthSel" style="width:auto;"></select>
-          <select id="yearSel" style="width:auto;"></select>
-          <button id="nextMonth" class="secondary" style="width:auto;">След. месяц →</button>
-          <button id="todayBtn" class="secondary" style="width:auto;">Сегодня</button>
+        <!-- ✅ ВАЖНО: обертка для ровного выравнивания -->
+        <div class="calControls">
+          <div class="calControls__nav">
+            <button id="prevMonth" class="secondary" type="button">← Пред. месяц</button>
+            <button id="todayBtn" class="secondary" type="button">Сегодня</button>
+            <button id="nextMonth" class="secondary" type="button">След. месяц →</button>
+          </div>
+
+          <div class="calControls__pickers">
+            <select id="monthSel"></select>
+            <select id="yearSel"></select>
+          </div>
         </div>
       </div>
 
-      <!-- ✅ ПЕРЕВОД ДЛЯ РОДИТЕЛЕЙ -->
+      <!-- ✅ Показ запросов -->
       <div class="checkRow" style="margin-top:10px;">
         <input id="calShowRequest" type="checkbox" />
         <label for="calShowRequest">Показывать «Запрос» тоже (иначе только «Подтверждено/Завершено»)</label>
@@ -70,7 +76,6 @@
       <div class="calGrid" id="calDow"></div>
       <div class="calGrid" id="calGrid"></div>
 
-      <!-- ✅ hint обновляем из app.js -->
       <div class="hint" id="calHint"></div>
     </div>
   </div>
@@ -82,10 +87,10 @@
     <div class="modal-content">
       <div class="modal-header">
         <b id="modalTitle">Брони</b>
-        <button id="modalClose">✕</button>
+        <button id="modalClose" type="button">✕</button>
       </div>
       <div id="modalBody" class="modal-body"></div>
-      <button id="modalOk" class="modal-ok">Понятно</button>
+      <button id="modalOk" class="modal-ok" type="button">Понятно</button>
     </div>
   </div>
 
