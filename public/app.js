@@ -633,12 +633,19 @@ async function initCalendarPage(){
   }
 
   function bookingsByDay(dateStr){
-    const day = dateStr;
-    return bookings.filter(b=>{
-      if(!bookingActiveForCalendar(b)) return false;
-      return (day >= b.check_in) && (day < b.check_out);
-    });
-  }
+  const day = new Date(dateStr + "T00:00:00");
+
+  return bookings.filter(b=>{
+    if (!bookingActiveForCalendar(b)) return false;
+
+    const checkIn  = new Date(b.check_in  + "T00:00:00");
+    const checkOut = new Date(b.check_out + "T00:00:00");
+
+    // ✅ день занят, если:
+    // checkIn <= day < checkOut
+    return day >= checkIn && day < checkOut;
+  });
+}
 
   function initials(name){
     const parts = String(name||"").trim().split(/\s+/).filter(Boolean);
