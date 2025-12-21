@@ -579,7 +579,6 @@ async function initCalendarPage(){
   const monthSel = $("monthSel");
   const yearSel = $("yearSel");
   const hint = $("calHint");
-
   const showReqEl = $("calShowRequest");
 
   const modal = $("bookingModal");
@@ -598,6 +597,11 @@ async function initCalendarPage(){
 
   if(dow){
     dow.innerHTML = dowRu.map(x=>`<div class="calDow">${x}</div>`).join("");
+  }
+
+  // ✅ у тебя иногда прилетает ISO: 2025-12-05T00:00:00.000Z
+  function dateOnly(s){
+    return String(s || "").slice(0, 10); // YYYY-MM-DD
   }
 
   const now = new Date();
@@ -624,14 +628,7 @@ async function initCalendarPage(){
     return `${y}-${m}-${day}`;
   }
 
-  // ✅ фикс: режем ISO (2025-12-05T00:00:00.000Z) -> 2025-12-05
-  function dateOnly(v){
-    const s = String(v || "");
-    return s.length >= 10 ? s.slice(0, 10) : s;
-  }
-
   let bookings = [];
-
   async function loadBookings(){
     bookings = await apiGet("/api/bookings");
   }
@@ -644,8 +641,8 @@ async function initCalendarPage(){
     return false;
   }
 
-  // ✅ занято: check_in <= day < check_out
-  // бронь 5→7 занимает 5 и 6, а 7 (день выезда) свободно
+  // ✅ главное правило: день занят, если checkIn <= day < checkOut
+  // и check_in/check_out берём ТОЛЬКО YYYY-MM-DD
   function bookingsByDay(dateStr){
     const day = new Date(dateStr + "T00:00:00");
 
@@ -658,6 +655,9 @@ async function initCalendarPage(){
       const checkIn  = new Date(inStr  + "T00:00:00");
       const checkOut = new Date(outStr + "T00:00:00");
 
+      if(isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return false;
+
+      // ✅ занято: 5-7 => занято 5 и 6, а 7 свободно
       return day >= checkIn && day < checkOut;
     });
   }
@@ -698,11 +698,11 @@ async function initCalendarPage(){
       const occ = dayBookings.length > 0;
       const isToday = ds === todayStr;
 
+      // ✅ tooltip без ...000Z
       const tip = occ
         ? dayBookings.slice(0,4).map(b=>{
             const nm = b.full_name || "";
             const stRu = uiBookingStatus(b.booking_status);
-            // ✅ без ...000Z
             return `${nm} • ${stRu} • ${dateOnly(b.check_in)}→${dateOnly(b.check_out)}`;
           }).join("\n") + (dayBookings.length>4 ? `\n+ ещё ${dayBookings.length-4}` : "")
         : "";
@@ -795,7 +795,6 @@ async function initCalendarPage(){
     curMonth = Number(monthSel.value);
     render();
   });
-
   yearSel?.addEventListener("change", ()=>{
     curYear = Number(yearSel.value);
     render();
@@ -809,62 +808,57 @@ async function initCalendarPage(){
   await loadBookings();
   render();
 }
-
 // =================== FINANCE PAGE ===================
 function drawBarChart(canvas, labels, values){
-  if(!canvas) return;
-
-  // ✅ подгоняем внутренний размер canvas под CSS-размер
-  const w = Math.max(300, canvas.clientWidth || 0);
-  const h = Math.max(180, canvas.clientHeight || 0);
-
-  // чтобы не было размытости на Retina
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(w * dpr);
-  canvas.height = Math.floor(h * dpr);
-  canvas.style.width = w + "px";
-  canvas.style.height = h + "px";
-
   const ctx = canvas.getContext("2d");
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if(!ctx) return;
 
-  const W = w;
-  const H = h;
-  ctx.clearRect(0, 0, W, H);
+  // ✅ подгоняем реальный размер canvas под CSS-размер (иначе остаётся 300x150)
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 980;
+  const cssH = canvas.clientHeight || 280;
 
-  const padL = 46, padR = 12, padT = 12, padB = 34;
-  const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
+  const needResize =
+    canvas.width !== Math.floor(cssW * dpr) ||
+    canvas.height !== Math.floor(cssH * dpr);
 
-  if(!labels?.length || !values?.length){
-    // ось хотя бы покажем
-    ctx.beginPath();
-    ctx.moveTo(padL, padT);
-    ctx.lineTo(padL, padT + plotH);
-    ctx.lineTo(padL + plotW, padT + plotH);
-    ctx.strokeStyle = "#e5e7eb";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    return;
+  if(needResize){
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // рисуем в CSS-пикселях
+  }else{
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  const maxV = Math.max(1, ...values.map(v => Number(v || 0)));
-  const barW = plotW / values.length;
+  const W = cssW;
+  const H = cssH;
 
-  // оси
+  ctx.clearRect(0,0,W,H);
+
+  const padL = 46, padR = 12, padT = 12, padB = 34;
+  const w = W - padL - padR;
+  const h = H - padT - padB;
+
+  const maxV = Math.max(1, ...values.map(v=>Number(v||0)));
+  const barW = w / Math.max(1, values.length);
+
+  // axes
+  ctx.globalAlpha = 0.9;
   ctx.beginPath();
   ctx.moveTo(padL, padT);
-  ctx.lineTo(padL, padT + plotH);
-  ctx.lineTo(padL + plotW, padT + plotH);
+  ctx.lineTo(padL, padT + h);
+  ctx.lineTo(padL + w, padT + h);
   ctx.strokeStyle = "#e5e7eb";
   ctx.lineWidth = 1;
   ctx.stroke();
 
   for(let i=0;i<values.length;i++){
-    const v = Number(values[i] || 0);
-    const bh = (v / maxV) * (plotH - 8);
+    const v = Number(values[i]||0);
+    const bh = (v / maxV) * (h - 8);
     const x = padL + i * barW + 6;
-    const y = padT + plotH - bh;
+    const y = padT + h - bh;
 
     ctx.fillStyle = "rgba(59,127,106,.75)";
     ctx.fillRect(x, y, Math.max(2, barW - 12), bh);
@@ -872,108 +866,9 @@ function drawBarChart(canvas, labels, values){
     ctx.fillStyle = "#64748b";
     ctx.font = "12px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText(labels[i], x + (barW-12)/2, padT + plotH + 18);
+    ctx.fillText(labels[i], x + (barW-12)/2, padT + h + 18);
   }
 }
-async function initFinancePage(){
-  const yearPick = $("yearPick");
-  const monthPick = $("monthPick");
-  const btn = $("btnLoadStats");
-  if(!yearPick || !monthPick || !btn) return;
-
-  const allTime = $("allTime");
-  const revEl = $("rev");
-  const expEl = $("exp");
-  const netEl = $("net");
-  const msgEl = $("statsMsg");
-
-  const metricSel = $("chartMetric");
-  const yearTotal = $("yearTotal");
-  const yearAvg = $("yearAvg");
-  const chart = $("revChart");
-
-  function fillYearMonth(){
-    const now = new Date();
-    const y = now.getFullYear();
-    yearPick.innerHTML = Array.from({length: 6}, (_,i)=> y - 3 + i)
-      .map(v=>`<option value="${v}">${v}</option>`).join("");
-    yearPick.value = String(y);
-
-    const monthsRu = ["01 — Январь","02 — Февраль","03 — Март","04 — Апрель","05 — Май","06 — Июнь","07 — Июль","08 — Август","09 — Сентябрь","10 — Октябрь","11 — Ноябрь","12 — Декабрь"];
-    monthPick.innerHTML = `<option value="">— не выбирать —</option>` + monthsRu.map((t,i)=>{
-      const mm = String(i+1).padStart(2,"0");
-      return `<option value="${mm}">${t}</option>`;
-    }).join("");
-    monthPick.value = "";
-  }
-
-  async function loadStats(){
-    if(msgEl) msgEl.textContent = "";
-
-    const y = yearPick.value;
-    const m = monthPick.value;
-    const month = (!allTime?.checked && m) ? `${y}-${m}` : null;
-
-    try{
-      const data = await apiGet(`/api/stats${month ? ("?month="+encodeURIComponent(month)) : ""}`);
-      if(revEl) revEl.textContent = Number(data.revenue||0).toLocaleString("ru-RU");
-      if(expEl) expEl.textContent = Number(data.expenses||0).toLocaleString("ru-RU");
-      if(netEl) {
-        const v = Number(data.net||0);
-        netEl.textContent = v.toLocaleString("ru-RU");
-        netEl.className = v >= 0 ? "pos" : "neg";
-      }
-      if(msgEl) msgEl.textContent = "✅ Готово";
-    }catch(e){
-      if(msgEl) msgEl.textContent = "❌ " + (e.message || "ошибка");
-    }
-  }
-
-  async function loadChart(){
-    if(!chart) return;
-
-    const y = Number(yearPick.value);
-    try{
-      const data = await apiGet(`/api/profit-by-month?year=${encodeURIComponent(y)}`);
-      const months = data.months || [];
-      const labels = months.map(x=>x.month);
-
-      let values = months.map(x=>Number(x.revenue||0));
-      const metric = metricSel?.value || "revenue";
-      if(metric === "expenses") values = months.map(x=>Number(x.expenses||0));
-      if(metric === "net") values = months.map(x=>Number(x.net||0));
-
-      const sum = values.reduce((s,v)=>s+Number(v||0), 0);
-      const avg = Math.round(sum / 12);
-      if(yearTotal) yearTotal.textContent = sum.toLocaleString("ru-RU") + " ₸";
-      if(yearAvg) yearAvg.textContent = avg.toLocaleString("ru-RU") + " ₸";
-
-      drawBarChart(chart, labels, values);
-    }catch(e){
-      // ignore
-    }
-  }
-
-  $("btnExport")?.addEventListener("click", ()=>{
-    const y = yearPick.value;
-    const a = document.createElement("a");
-    a.href = `/api/export/year.csv?year=${encodeURIComponent(y)}`;
-    a.click();
-  });
-
-  btn.addEventListener("click", loadStats);
-  yearPick.addEventListener("change", loadChart);
-  metricSel?.addEventListener("change", loadChart);
-
-  allTime?.addEventListener("change", ()=>{
-    if(allTime.checked) monthPick.value = "";
-  });
-
-  fillYearMonth();
-  await loadStats();
-  await loadChart();
-}
-
 // =================== EXPENSES PAGE ===================
 async function initExpensesPage(){
   const listEl = $("expList");
