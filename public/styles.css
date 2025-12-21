@@ -847,3 +847,16 @@ body:has(.loginWrap) {
 .navLogout:active{
   transform:translateY(1px);
 }
+/* ===== Mobile scale (уменьшаем интерфейс до ~75%) ===== */
+@media (max-width: 480px) {
+  body {
+    zoom: 0.75;                 /* Android, Chrome */
+  }
+
+  /* iOS Safari fallback */
+  html {
+    transform: scale(0.75);
+    transform-origin: top left;
+    width: 133.3333%;           /* 100 / 0.75 */
+  }
+}
