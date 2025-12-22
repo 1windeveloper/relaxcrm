@@ -106,19 +106,35 @@ function highlight(text, q){
   return a + `<mark class="hl">${b}</mark>` + c;
 }
 
-/* Активная вкладка nav */
+/* Активная вкладка nav (ФИКС: работает и без data-nav) */
 function setActiveNav(){
   const path = location.pathname;
-  let key = "";
-  if(path.includes("bookings")) key = "bookings";
-  else if(path.includes("calendar")) key = "calendar";
-  else if(path.includes("finance")) key = "finance";
-  else if(path.includes("expenses")) key = "expenses";
-  else if(path.includes("guests")) key = "guests";
 
-  document.querySelectorAll(".navItem[data-nav]").forEach(a=>{
-    if(a.getAttribute("data-nav") === key) a.classList.add("active");
-    else a.classList.remove("active");
+  // 1) если есть data-nav — работаем по нему
+  const navWithData = document.querySelectorAll(".navItem[data-nav]");
+  if (navWithData.length) {
+    let key = "";
+    if(path.includes("bookings")) key = "bookings";
+    else if(path.includes("calendar")) key = "calendar";
+    else if(path.includes("finance")) key = "finance";
+    else if(path.includes("expenses")) key = "expenses";
+    else if(path.includes("guests")) key = "guests";
+
+    navWithData.forEach(a=>{
+      if(a.getAttribute("data-nav") === key) a.classList.add("active");
+      else a.classList.remove("active");
+    });
+    return;
+  }
+
+  // 2) если data-nav нет — подсвечиваем по href
+  document.querySelectorAll(".navItem").forEach(a=>{
+    const href = a.getAttribute("href") || "";
+    const isActive =
+      (href === "/index.html" && (path === "/" || path.endsWith("/index.html"))) ||
+      (href !== "/index.html" && href && path.endsWith(href));
+
+    a.classList.toggle("active", !!isActive);
   });
 }
 
@@ -808,12 +824,12 @@ async function initCalendarPage(){
   await loadBookings();
   render();
 }
-// =================== FINANCE PAGE ===================
+
+// =================== FINANCE HELPERS (Canvas chart with DPR fix) ===================
 function drawBarChart(canvas, labels, values){
   const ctx = canvas.getContext("2d");
   if(!ctx) return;
 
-  // ✅ подгоняем реальный размер canvas под CSS-размер (иначе остаётся 300x150)
   const dpr = window.devicePixelRatio || 1;
   const cssW = canvas.clientWidth || 980;
   const cssH = canvas.clientHeight || 280;
@@ -827,10 +843,10 @@ function drawBarChart(canvas, labels, values){
     canvas.height = Math.floor(cssH * dpr);
     canvas.style.width = cssW + "px";
     canvas.style.height = cssH + "px";
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // рисуем в CSS-пикселях
-  }else{
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+
+  // рисуем в CSS-пикселях (не в device-пикселях)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const W = cssW;
   const H = cssH;
@@ -841,8 +857,9 @@ function drawBarChart(canvas, labels, values){
   const w = W - padL - padR;
   const h = H - padT - padB;
 
-  const maxV = Math.max(1, ...values.map(v=>Number(v||0)));
-  const barW = w / Math.max(1, values.length);
+  const nums = values.map(v=>Number(v||0));
+  const maxV = Math.max(1, ...nums);
+  const barW = w / Math.max(1, nums.length);
 
   // axes
   ctx.globalAlpha = 0.9;
@@ -854,8 +871,8 @@ function drawBarChart(canvas, labels, values){
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  for(let i=0;i<values.length;i++){
-    const v = Number(values[i]||0);
+  for(let i=0;i<nums.length;i++){
+    const v = nums[i];
     const bh = (v / maxV) * (h - 8);
     const x = padL + i * barW + 6;
     const y = padT + h - bh;
@@ -866,9 +883,128 @@ function drawBarChart(canvas, labels, values){
     ctx.fillStyle = "#64748b";
     ctx.font = "12px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText(labels[i], x + (barW-12)/2, padT + h + 18);
+    ctx.fillText(labels[i] ?? "", x + (barW-12)/2, padT + h + 18);
   }
 }
+
+// =================== FINANCE PAGE (FIXED) ===================
+async function initFinancePage(){
+  const getAny = (...ids) => ids.map(id => document.getElementById(id)).find(Boolean);
+
+  const yearPick  = getAny("yearPick", "financeYear", "year");
+  const monthPick = getAny("monthPick", "financeMonth", "month");
+  const btn       = getAny("btnLoadStats", "btnLoad", "loadStatsBtn", "btnStats");
+
+  if(!yearPick || !monthPick || !btn) return;
+
+  const allTime = getAny("allTime", "showAllTime");
+  const revEl   = getAny("rev", "revenue");
+  const expEl   = getAny("exp", "expenses");
+  const netEl   = getAny("net");
+  const msgEl   = getAny("statsMsg");
+
+  const metricSel = getAny("chartMetric", "metricSel");
+  const yearTotal = getAny("yearTotal");
+  const yearAvg   = getAny("yearAvg");
+  const chart     = getAny("revChart", "profitChart");
+
+  function fillYearMonth(){
+    const now = new Date();
+    const y = now.getFullYear();
+
+    yearPick.innerHTML = Array.from({length: 6}, (_,i)=> y - 3 + i)
+      .map(v=>`<option value="${v}">${v}</option>`).join("");
+    yearPick.value = String(y);
+
+    const monthsRu = [
+      "01 — Январь","02 — Февраль","03 — Март","04 — Апрель","05 — Май","06 — Июнь",
+      "07 — Июль","08 — Август","09 — Сентябрь","10 — Октябрь","11 — Ноябрь","12 — Декабрь"
+    ];
+
+    monthPick.innerHTML =
+      `<option value="">— не выбирать —</option>` +
+      monthsRu.map((t,i)=>{
+        const mm = String(i+1).padStart(2,"0");
+        return `<option value="${mm}">${t}</option>`;
+      }).join("");
+
+    monthPick.value = "";
+  }
+
+  async function loadStats(){
+    if(msgEl) msgEl.textContent = "";
+
+    const y = yearPick.value;
+    const m = monthPick.value;
+    const month = (!allTime?.checked && m) ? `${y}-${m}` : null;
+
+    try{
+      const data = await apiGet(`/api/stats${month ? ("?month="+encodeURIComponent(month)) : ""}`);
+      if(revEl) revEl.textContent = Number(data.revenue||0).toLocaleString("ru-RU");
+      if(expEl) expEl.textContent = Number(data.expenses||0).toLocaleString("ru-RU");
+      if(netEl) {
+        const v = Number(data.net||0);
+        netEl.textContent = v.toLocaleString("ru-RU");
+        netEl.className = v >= 0 ? "pos" : "neg";
+      }
+      if(msgEl) msgEl.textContent = "✅ Готово";
+    }catch(e){
+      if(msgEl) msgEl.textContent = "❌ " + (e?.message || "ошибка");
+    }
+  }
+
+  async function loadChart(){
+    if(!chart) return;
+
+    const y = Number(yearPick.value);
+    if(!y) return;
+
+    try{
+      const data = await apiGet(`/api/profit-by-month?year=${encodeURIComponent(y)}`);
+      const months = data.months || [];
+      const labels = months.map(x=>x.month);
+
+      let values = months.map(x=>Number(x.revenue||0));
+      const metric = metricSel?.value || "revenue";
+      if(metric === "expenses") values = months.map(x=>Number(x.expenses||0));
+      if(metric === "net")      values = months.map(x=>Number(x.net||0));
+
+      const sum = values.reduce((s,v)=>s+Number(v||0), 0);
+      const avg = Math.round(sum / 12);
+      if(yearTotal) yearTotal.textContent = sum.toLocaleString("ru-RU") + " ₸";
+      if(yearAvg) yearAvg.textContent = avg.toLocaleString("ru-RU") + " ₸";
+
+      drawBarChart(chart, labels, values);
+    }catch(e){
+      // ignore
+    }
+  }
+
+  document.getElementById("btnExport")?.addEventListener("click", ()=>{
+    const y = yearPick.value;
+    const a = document.createElement("a");
+    a.href = `/api/export/year.csv?year=${encodeURIComponent(y)}`;
+    a.click();
+  });
+
+  // ✅ сначала заполняем options, потом "pretty"
+  fillYearMonth();
+  enhanceSelect(yearPick);
+  enhanceSelect(monthPick);
+  if(metricSel) enhanceSelect(metricSel);
+
+  btn.addEventListener("click", loadStats);
+  yearPick.addEventListener("change", loadChart);
+  metricSel?.addEventListener("change", loadChart);
+
+  allTime?.addEventListener("change", ()=>{
+    if(allTime.checked) monthPick.value = "";
+  });
+
+  await loadStats();
+  await loadChart();
+}
+
 // =================== EXPENSES PAGE ===================
 async function initExpensesPage(){
   const listEl = $("expList");
@@ -923,7 +1059,7 @@ async function initExpensesPage(){
   await load();
 }
 
-// =================== Pretty Select ===================
+// =================== Pretty Select (FIXED) ===================
 function enhanceSelect(selectEl){
   if(!selectEl || selectEl.dataset.prettyDone === "1") return;
 
@@ -945,7 +1081,6 @@ function enhanceSelect(selectEl){
   function currentLabel(){
     const idx = selectEl.selectedIndex;
     const opt = idx >= 0 ? selectEl.options[idx] : null;
-    // если ещё не загрузили options — показываем плейсхолдер
     return opt ? opt.textContent : "— выбрать —";
   }
 
@@ -989,10 +1124,9 @@ function enhanceSelect(selectEl){
     if(!wrap.contains(e.target)) close();
   });
 
-  // ✅ если select меняется обычным способом
   selectEl.addEventListener("change", rebuild);
 
-  // ✅ ВАЖНО: если options добавят ПОЗЖЕ (как у тебя в finance/calendar) — тоже обновить
+  // ✅ ВАЖНО: если options меняются через innerHTML — обновляем UI
   const mo = new MutationObserver(() => rebuild());
   mo.observe(selectEl, { childList: true, subtree: true });
 
