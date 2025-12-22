@@ -657,8 +657,6 @@ async function initCalendarPage(){
     return false;
   }
 
-  // ✅ главное правило: день занят, если checkIn <= day < checkOut
-  // и check_in/check_out берём ТОЛЬКО YYYY-MM-DD
   function bookingsByDay(dateStr){
     const day = new Date(dateStr + "T00:00:00");
 
@@ -673,7 +671,6 @@ async function initCalendarPage(){
 
       if(isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return false;
 
-      // ✅ занято: 5-7 => занято 5 и 6, а 7 свободно
       return day >= checkIn && day < checkOut;
     });
   }
@@ -714,7 +711,6 @@ async function initCalendarPage(){
       const occ = dayBookings.length > 0;
       const isToday = ds === todayStr;
 
-      // ✅ tooltip без ...000Z
       const tip = occ
         ? dayBookings.slice(0,4).map(b=>{
             const nm = b.full_name || "";
@@ -845,7 +841,6 @@ function drawBarChart(canvas, labels, values){
     canvas.style.height = cssH + "px";
   }
 
-  // рисуем в CSS-пикселях (не в device-пикселях)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const W = cssW;
@@ -861,7 +856,6 @@ function drawBarChart(canvas, labels, values){
   const maxV = Math.max(1, ...nums);
   const barW = w / Math.max(1, nums.length);
 
-  // axes
   ctx.globalAlpha = 0.9;
   ctx.beginPath();
   ctx.moveTo(padL, padT);
@@ -931,15 +925,46 @@ async function initFinancePage(){
     monthPick.value = "";
   }
 
+  // ✅ FIX: проверка месяца перед запросом + понятный месседж про 500
   async function loadStats(){
     if(msgEl) msgEl.textContent = "";
 
-    const y = yearPick.value;
-    const m = monthPick.value;
-    const month = (!allTime?.checked && m) ? `${y}-${m}` : null;
+    const y = String(yearPick.value || "").trim();
+    const m = String(monthPick.value || "").trim();
+
+    // если "за всё время" — месяц не нужен
+    if(allTime?.checked){
+      try{
+        const data = await apiGet(`/api/stats`);
+        if(revEl) revEl.textContent = Number(data.revenue||0).toLocaleString("ru-RU");
+        if(expEl) expEl.textContent = Number(data.expenses||0).toLocaleString("ru-RU");
+        if(netEl) {
+          const v = Number(data.net||0);
+          netEl.textContent = v.toLocaleString("ru-RU");
+          netEl.className = v >= 0 ? "pos" : "neg";
+        }
+        if(msgEl) msgEl.textContent = "✅ Готово";
+      }catch(e){
+        if(msgEl) msgEl.textContent = "❌ " + (e?.message || "ошибка");
+      }
+      return;
+    }
+
+    // если НЕ allTime, но месяц не выбран — не шлём кривой запрос
+    if(!m){
+      if(msgEl) msgEl.textContent = "⚠️ Выбери месяц или включи «за всё время»";
+      return;
+    }
+
+    // строгая проверка формата YYYY-MM
+    const month = `${y}-${m}`;
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)){
+      if(msgEl) msgEl.textContent = "⚠️ Неверный формат месяца: " + month;
+      return;
+    }
 
     try{
-      const data = await apiGet(`/api/stats${month ? ("?month="+encodeURIComponent(month)) : ""}`);
+      const data = await apiGet(`/api/stats?month=${encodeURIComponent(month)}`);
       if(revEl) revEl.textContent = Number(data.revenue||0).toLocaleString("ru-RU");
       if(expEl) expEl.textContent = Number(data.expenses||0).toLocaleString("ru-RU");
       if(netEl) {
@@ -949,7 +974,14 @@ async function initFinancePage(){
       }
       if(msgEl) msgEl.textContent = "✅ Готово";
     }catch(e){
-      if(msgEl) msgEl.textContent = "❌ " + (e?.message || "ошибка");
+      // если 500 — объясняем как человек
+      if(e?.status === 500){
+        if(msgEl) msgEl.textContent =
+          "❌ Сервер упал (HTTP 500). Обычно это значит: на бекенде запрос по месяцу вернул 0 строк, " +
+          "а код пытается взять rows[0].revenue. Нужен фикс на бекенде: возвращать 0 вместо падения.";
+      }else{
+        if(msgEl) msgEl.textContent = "❌ " + (e?.message || "ошибка");
+      }
     }
   }
 
@@ -987,7 +1019,6 @@ async function initFinancePage(){
     a.click();
   });
 
-  // ✅ сначала заполняем options, потом "pretty"
   fillYearMonth();
   enhanceSelect(yearPick);
   enhanceSelect(monthPick);
@@ -1126,7 +1157,6 @@ function enhanceSelect(selectEl){
 
   selectEl.addEventListener("change", rebuild);
 
-  // ✅ ВАЖНО: если options меняются через innerHTML — обновляем UI
   const mo = new MutationObserver(() => rebuild());
   mo.observe(selectEl, { childList: true, subtree: true });
 
@@ -1135,12 +1165,10 @@ function enhanceSelect(selectEl){
 }
 
 function enhancePrettySelects(){
-  // Finance
   enhanceSelect(document.getElementById("yearPick"));
   enhanceSelect(document.getElementById("monthPick"));
   enhanceSelect(document.getElementById("chartMetric"));
 
-  // Calendar
   enhanceSelect(document.getElementById("monthSel"));
   enhanceSelect(document.getElementById("yearSel"));
 }
