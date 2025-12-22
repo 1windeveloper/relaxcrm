@@ -608,11 +608,13 @@ app.get("/api/stats", async (req, res) => {
     const b = month ? await db.query(bSql, [month]) : await db.query(bSql);
     const e = month ? await db.query(eSql, [month]) : await db.query(eSql);
 
-    const revenue = Number(b.rows[0]?.revenue || 0);
-    const expenses = Number(e.rows[0]?.expenses || 0);
+    const revenue = Number(b?.rows?.[0]?.revenue ?? 0);
+    const expenses = Number(e?.rows?.[0]?.expenses ?? 0);
 
     res.json({ month: month || null, revenue, expenses, net: revenue - expenses });
-  } catch {
+ // ✅ НОВЫЙ КОД:
+  } catch (err) {
+    console.error("❌ /api/stats error:", err);
     res.status(500).json({ error: "db error" });
   }
 });
@@ -739,10 +741,11 @@ app.get("/api/export/year.csv", async (req, res) => {
       [y]
     );
 
-    const revenue = Number(r1.rows[0]?.revenue || 0);
-    const expenses = Number(r2.rows[0]?.expenses || 0);
+// ✅ НОВЫЙ КОД:
+    // Безопасное извлечение данных с проверкой на undefined/null
+    const revenue = Number(r1?.rows?.[0]?.revenue ?? 0);
+    const expenses = Number(r2?.rows?.[0]?.expenses ?? 0);
     const net = revenue - expenses;
-
     const byMonth = await db.query(
       `
       WITH rev AS (
