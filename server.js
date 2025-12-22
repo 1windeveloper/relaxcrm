@@ -589,6 +589,7 @@ app.delete("/api/expenses/:id", async (req, res) => {
 app.get("/api/stats", async (req, res) => {
   try {
     const month = String(req.query.month || "").trim();
+    console.log("📊 /api/stats вызван с month:", month);
 
     const bSql = month
       ? `SELECT COALESCE(SUM(price_total),0) AS revenue
@@ -605,17 +606,26 @@ app.get("/api/stats", async (req, res) => {
       : `SELECT COALESCE(SUM(amount),0) AS expenses
          FROM expenses`;
 
+    console.log("🔍 Выполняю запрос к bookings...");
     const b = month ? await db.query(bSql, [month]) : await db.query(bSql);
+    console.log("✅ Результат bookings:", b?.rows);
+
+    console.log("🔍 Выполняю запрос к expenses...");
     const e = month ? await db.query(eSql, [month]) : await db.query(eSql);
+    console.log("✅ Результат expenses:", e?.rows);
 
     const revenue = Number(b?.rows?.[0]?.revenue ?? 0);
     const expenses = Number(e?.rows?.[0]?.expenses ?? 0);
 
+    console.log("💰 Итого - revenue:", revenue, "expenses:", expenses);
+
     res.json({ month: month || null, revenue, expenses, net: revenue - expenses });
- // ✅ НОВЫЙ КОД:
   } catch (err) {
-    console.error("❌ /api/stats error:", err);
-    res.status(500).json({ error: "db error" });
+    console.error("❌ /api/stats ОШИБКА:");
+    console.error("   Тип ошибки:", err.name);
+    console.error("   Сообщение:", err.message);
+    console.error("   Stack:", err.stack);
+    res.status(500).json({ error: "db error", details: err.message });
   }
 });
 
