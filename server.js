@@ -589,12 +589,11 @@ app.delete("/api/expenses/:id", async (req, res) => {
 app.get("/api/stats", async (req, res) => {
   try {
     const month = String(req.query.month || "").trim();
-    console.log("📊 /api/stats вызван с month:", month);
 
     const bSql = month
       ? `SELECT COALESCE(SUM(price_total),0) AS revenue
          FROM bookings
-         WHERE booking_status <> 'CANCELLED' AND substring(check_in,1,7) = $1`
+         WHERE booking_status <> 'CANCELLED' AND TO_CHAR(check_in, 'YYYY-MM') = $1`
       : `SELECT COALESCE(SUM(price_total),0) AS revenue
          FROM bookings
          WHERE booking_status <> 'CANCELLED'`;
@@ -602,33 +601,22 @@ app.get("/api/stats", async (req, res) => {
     const eSql = month
       ? `SELECT COALESCE(SUM(amount),0) AS expenses
          FROM expenses
-         WHERE substring(exp_date,1,7) = $1`
+         WHERE TO_CHAR(exp_date, 'YYYY-MM') = $1`
       : `SELECT COALESCE(SUM(amount),0) AS expenses
          FROM expenses`;
 
-    console.log("🔍 Выполняю запрос к bookings...");
     const b = month ? await db.query(bSql, [month]) : await db.query(bSql);
-    console.log("✅ Результат bookings:", b?.rows);
-
-    console.log("🔍 Выполняю запрос к expenses...");
     const e = month ? await db.query(eSql, [month]) : await db.query(eSql);
-    console.log("✅ Результат expenses:", e?.rows);
 
     const revenue = Number(b?.rows?.[0]?.revenue ?? 0);
     const expenses = Number(e?.rows?.[0]?.expenses ?? 0);
 
-    console.log("💰 Итого - revenue:", revenue, "expenses:", expenses);
-
     res.json({ month: month || null, revenue, expenses, net: revenue - expenses });
   } catch (err) {
-    console.error("❌ /api/stats ОШИБКА:");
-    console.error("   Тип ошибки:", err.name);
-    console.error("   Сообщение:", err.message);
-    console.error("   Stack:", err.stack);
-    res.status(500).json({ error: "db error", details: err.message });
+    console.error("❌ /api/stats error:", err);
+    res.status(500).json({ error: "db error" });
   }
 });
-
 // ------------------------
 // Finance: revenue-by-month (по году)
 // ------------------------
