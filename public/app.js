@@ -754,33 +754,94 @@ async function initCalendarPage(){
   }
 
   function openDayModal(ds){
-    const dayBookings = bookingsByDay(ds);
+  const dayBookings = bookingsByDay(ds);
 
-    if(modalTitle) modalTitle.textContent = "Брони на " + ds;
+  if(modalTitle) modalTitle.textContent = "Брони на " + ds;
 
-    if(modalBody){
-      if(!dayBookings.length){
-        modalBody.innerHTML = `<div class="notice">На этот день броней нет ✅</div>`;
-      }else{
-        modalBody.innerHTML = dayBookings.map(b=>{
-          const st = String(b.booking_status || "");
-          const stBadge = (st==="CONFIRMED"||st==="COMPLETED") ? "ok" : "wait";
-          return `
-            <div class="card" style="margin-bottom:10px;">
-              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                <b>${escapeHtml(b.full_name || "")}</b>
-                <span class="badge ${stBadge}">${escapeHtml(uiBookingStatus(st))}</span>
-              </div>
-              <div class="small">${escapeHtml(dateOnly(b.check_in))} → ${escapeHtml(dateOnly(b.check_out))} • гостей: <b>${Number(b.guests_count||1)}</b></div>
-              <div class="small">Сумма: <b>${Number(b.price_total||0).toLocaleString("ru-RU")}</b> ₸</div>
+  // helpers
+  const money = (v) => Number(v||0).toLocaleString("ru-RU") + " ₸";
+  const line = (label, value) => `
+    <div class="small" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <span style="color:#64748b;min-width:110px;">${escapeHtml(label)}</span>
+      <b>${escapeHtml(value)}</b>
+    </div>
+  `;
+
+  // итоги по дню (только не отменённые)
+  const active = dayBookings.filter(b => String(b.booking_status||"") !== "CANCELLED");
+  const sumTotal = active.reduce((s,b)=> s + Number(b.price_total||0), 0);
+  const sumPre   = active.reduce((s,b)=> s + Number(b.prepayment||0), 0);
+  const sumDebt  = Math.max(0, sumTotal - sumPre);
+
+  if(modalBody){
+    if(!dayBookings.length){
+      modalBody.innerHTML = `<div class="notice">На этот день броней нет ✅</div>`;
+    }else{
+      const cards = dayBookings.map(b=>{
+        const st = String(b.booking_status || "");
+        const stBadge = (st==="CONFIRMED"||st==="COMPLETED") ? "ok" : (st==="CANCELLED" ? "no" : "wait");
+
+        const paySt = String(b.payment_status || "");
+        const payBadge = (paySt==="PAID") ? "ok" : (paySt==="PARTIAL" ? "wait" : "");
+
+        const phone = b.phone || "—";
+        const ig = b.instagram || "—";
+        const src = b.source || "—";
+        const notes = b.notes || "";
+
+        const total = Number(b.price_total||0);
+        const pre = Number(b.prepayment||0);
+        const debt = Math.max(0, total - pre);
+
+        return `
+          <div class="card ${st==="CANCELLED" ? "isCancelled" : ""}" style="margin-bottom:12px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <b style="font-size:18px;">${escapeHtml(b.full_name || "")}</b>
+              <span class="badge ${stBadge}">${escapeHtml(uiBookingStatus(st))}</span>
+              <span class="badge ${payBadge}">${escapeHtml(uiPaymentStatus(paySt))}</span>
             </div>
-          `;
-        }).join("");
-      }
-    }
 
-    showModal(true);
+            <div style="height:8px"></div>
+
+            ${line("Заезд", dateOnly(b.check_in))}
+            ${line("Выезд", dateOnly(b.check_out))}
+            ${line("Гостей", String(Number(b.guests_count||1)))}
+            ${line("Телефон", phone)}
+            ${line("Instagram", ig)}
+            ${line("Источник", src)}
+
+            <div style="height:8px"></div>
+
+            ${line("Сумма", money(total))}
+            ${line("Предоплата", money(pre))}
+            ${line("Остаток", money(debt))}
+
+            ${notes ? `<div style="height:8px"></div>${line("Заметки", notes)}` : ""}
+
+            ${st==="CANCELLED" ? `<div class="hint">Отменено — в итогах дня не учитывается.</div>` : ``}
+          </div>
+        `;
+      }).join("");
+
+      const summary = `
+        <div class="card" style="margin-top:12px; border:2px solid #e5e7eb;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <b>Итоги дня (без отменённых)</b>
+            <span class="badge">Броней: ${active.length}</span>
+          </div>
+          <div style="height:8px"></div>
+          ${line("Общая сумма", money(sumTotal))}
+          ${line("Предоплата", money(sumPre))}
+          ${line("Остаток", money(sumDebt))}
+        </div>
+      `;
+
+      modalBody.innerHTML = cards + summary;
+    }
   }
+
+  showModal(true);
+}
 
   $("prevMonth")?.addEventListener("click", ()=>{
     curMonth--;
