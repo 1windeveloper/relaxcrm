@@ -34,87 +34,177 @@
   </div>
 
   <div class="container">
-    <div class="notice">
-      Подсказка: сначала добавьте гостя или выберите его из списка, затем заполните даты и сохраните бронь.
-    </div>
 
-    <div style="height:12px"></div>
+    <!-- ===== BOOKING WIZARD ===== -->
+    <div class="card" id="bookingWizard" style="margin-bottom:12px;">
 
-    <div class="card">
-      <h2 style="margin:0 0 6px;">Создание брони</h2>
-      <div class="small">Предоплата по умолчанию: 50 000 ₸</div>
-      <div class="hr"></div>
-
-      <div class="row grid2">
-        <div class="card">
-          <h3 style="margin:0 0 10px;">1) Гость</h3>
-
-          <label>ФИО гостя</label>
-          <input id="g_name" placeholder="Например: Иванов Иван" />
-
-          <label>Телефон</label>
-          <input id="g_phone" placeholder="Например: 8707..." />
-
-          <label>Instagram (если есть)</label>
-          <input id="g_ig" placeholder="@username (необязательно)" />
-
-          <div style="height:10px"></div>
-          <button id="btnAddGuest">Добавить гостя</button>
-          <div class="hint" id="guestMsg"></div>
-
-          <div class="hr"></div>
-
-          <label>Выбрать гостя из списка</label>
-          <select id="guestSelect"></select>
-          <div class="hint">Если гость уже есть, просто выберите его здесь.</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div>
+          <h2 style="margin:0;">Новая бронь</h2>
+          <div class="small">Быстрое оформление за 4 шага</div>
         </div>
-
-        <div class="card">
-          <h3 style="margin:0 0 10px;">2) Бронь</h3>
-
-          <label>Дата заезда</label>
-          <input id="check_in" type="date" />
-
-          <label>Дата выезда</label>
-          <input id="check_out" type="date" />
-
-          <label>Количество гостей</label>
-          <input id="guests_count" type="number" min="1" value="1" />
-
-          <label>Стоимость за весь период (₸)</label>
-          <input id="price_total" type="number" min="0" value="0" />
-
-          <label>Предоплата (₸)</label>
-          <input id="prepayment" type="number" min="0" value="50000" />
-
-          <label>Статус брони</label>
-          <select id="booking_status">
-            <option value="REQUEST">Запрос (ещё не подтверждено)</option>
-            <option value="CONFIRMED">Подтверждено</option>
-          </select>
-
-          <label>Статус оплаты</label>
-          <select id="payment_status">
-            <option value="UNPAID">Не оплачено</option>
-            <option value="PARTIAL">Внесена предоплата</option>
-            <option value="PAID">Оплачено полностью</option>
-          </select>
-
-          <label>Откуда пришёл клиент</label>
-          <input id="source" placeholder="WhatsApp / Instagram" />
-
-          <label>Заметки (по желанию)</label>
-          <textarea id="notes" rows="3" placeholder="Например: приедут вечером, нужен мангал..."></textarea>
-
-          <div style="height:10px"></div>
-          <button id="btnAddBooking">Сохранить бронь</button>
-          <div class="hint" id="bookingMsg"></div>
+        <div class="wizSteps" id="wizSteps">
+          <div class="wizStep wizStep--active" data-wstep="1">
+            <span class="wizStep__num" id="wsNum1">1</span>
+            <span class="wizStep__label">Гость</span>
+          </div>
+          <div class="wizStep" data-wstep="2">
+            <span class="wizStep__num" id="wsNum2">2</span>
+            <span class="wizStep__label">Даты</span>
+          </div>
+          <div class="wizStep" data-wstep="3">
+            <span class="wizStep__num" id="wsNum3">3</span>
+            <span class="wizStep__label">Оплата</span>
+          </div>
+          <div class="wizStep" data-wstep="4">
+            <span class="wizStep__num" id="wsNum4">4</span>
+            <span class="wizStep__label">Готово</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div style="height:12px"></div>
+      <div class="wizLayout">
 
+        <!-- Main area -->
+        <div class="wizMain">
+
+          <!-- STEP 1: Guest -->
+          <div id="wP1" class="wizPanel">
+            <h3 style="margin:0 0 12px;">Выберите гостя</h3>
+            <div class="wizModes">
+              <button class="secondary wizModeBtn wizModeBtn--active" id="wModeSearch">Найти существующего</button>
+              <button class="secondary wizModeBtn" id="wModeNew">Новый гость</button>
+            </div>
+
+            <!-- Search mode -->
+            <div id="wGuestSearch" style="margin-top:10px;">
+              <input id="wGuestQ" placeholder="Введите имя или телефон..." autocomplete="off" />
+              <div id="wGuestResults" class="wizGuestList"></div>
+              <div id="wGuestSelected" class="hint" style="color:var(--brand);margin-top:6px;display:none;font-weight:700;"></div>
+            </div>
+
+            <!-- Create mode -->
+            <div id="wGuestCreate" style="margin-top:10px;" hidden>
+              <label>ФИО гостя *</label>
+              <input id="wg_name" placeholder="Иванов Иван" />
+              <label>Телефон</label>
+              <input id="wg_phone" placeholder="8707..." />
+              <details style="margin-top:8px;">
+                <summary class="small" style="cursor:pointer;color:var(--brand);font-weight:600;">Instagram (необязательно)</summary>
+                <label style="margin-top:8px;">Instagram</label>
+                <input id="wg_ig" placeholder="@username" />
+              </details>
+            </div>
+          </div>
+
+          <!-- STEP 2: Dates -->
+          <div id="wP2" class="wizPanel" hidden>
+            <h3 style="margin:0 0 12px;">Даты заезда и выезда</h3>
+            <div class="wizQuickDates">
+              <button class="secondary" id="wQToday" style="width:auto;font-size:13px;padding:6px 14px;">Сегодня</button>
+              <button class="secondary" id="wQTomorrow" style="width:auto;font-size:13px;padding:6px 14px;">Завтра</button>
+              <button class="secondary" id="wQWeekend" style="width:auto;font-size:13px;padding:6px 14px;">Выходные</button>
+            </div>
+            <div class="row grid2" style="margin-top:12px;">
+              <div>
+                <label>Дата заезда *</label>
+                <input id="w_check_in" type="date" />
+              </div>
+              <div>
+                <label>Дата выезда *</label>
+                <input id="w_check_out" type="date" />
+              </div>
+            </div>
+            <div id="wNightCount" style="font-size:15px;font-weight:700;color:var(--brand);margin:6px 0;min-height:22px;"></div>
+            <div class="row grid2">
+              <div>
+                <label>Количество гостей</label>
+                <input id="w_guests_count" type="number" min="1" value="2" />
+              </div>
+              <div>
+                <label>Стоимость за весь период (₸)</label>
+                <input id="w_price_total" type="number" min="0" value="0" />
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 3: Payment -->
+          <div id="wP3" class="wizPanel" hidden>
+            <h3 style="margin:0 0 12px;">Оплата и статус</h3>
+            <div class="row grid2">
+              <div>
+                <label>Предоплата (₸)</label>
+                <input id="w_prepayment" type="number" min="0" value="50000" />
+              </div>
+              <div>
+                <label>Статус оплаты</label>
+                <select id="w_payment_status">
+                  <option value="UNPAID">Не оплачено</option>
+                  <option value="PARTIAL">Внесена предоплата</option>
+                  <option value="PAID">Оплачено полностью</option>
+                </select>
+              </div>
+            </div>
+            <label style="margin-top:12px;">Статус брони</label>
+            <select id="w_booking_status">
+              <option value="REQUEST">Запрос (ещё не подтверждено)</option>
+              <option value="CONFIRMED">Подтверждено</option>
+            </select>
+            <details style="margin-top:14px;">
+              <summary class="small" style="cursor:pointer;color:var(--muted);font-weight:600;">Источник — маркетинг (необязательно)</summary>
+              <div class="wizSourceGrid">
+                <button class="secondary wizSourceBtn" data-src="WhatsApp" style="width:auto;font-size:13px;padding:5px 12px;">WhatsApp</button>
+                <button class="secondary wizSourceBtn" data-src="Instagram" style="width:auto;font-size:13px;padding:5px 12px;">Instagram</button>
+                <button class="secondary wizSourceBtn" data-src="2GIS" style="width:auto;font-size:13px;padding:5px 12px;">2GIS</button>
+                <button class="secondary wizSourceBtn" data-src="Kaspi" style="width:auto;font-size:13px;padding:5px 12px;">Kaspi</button>
+                <button class="secondary wizSourceBtn" data-src="Повторный" style="width:auto;font-size:13px;padding:5px 12px;">Повторный</button>
+                <button class="secondary wizSourceBtn" data-src="Другое" style="width:auto;font-size:13px;padding:5px 12px;">Другое</button>
+              </div>
+              <input id="w_source" placeholder="Или введите вручную..." style="margin-top:8px;" />
+            </details>
+          </div>
+
+          <!-- STEP 4: Notes + Submit -->
+          <div id="wP4" class="wizPanel" hidden>
+            <h3 style="margin:0 0 12px;">Заметки и подтверждение</h3>
+            <details open>
+              <summary style="cursor:pointer;font-weight:600;color:var(--muted);">Добавить заметку (необязательно)</summary>
+              <textarea id="w_notes" rows="3" placeholder="Например: приедут вечером, нужен мангал, нужны детские кровати..." style="margin-top:8px;"></textarea>
+            </details>
+            <div style="height:20px;"></div>
+            <button id="wBtnSubmit" style="font-size:16px;padding:14px 28px;width:100%;">Создать бронь →</button>
+            <div class="hint" id="wMsg" style="margin-top:8px;text-align:center;"></div>
+          </div>
+
+          <!-- Nav buttons (steps 1-3) -->
+          <div class="wizNav" id="wizNavBar">
+            <button id="wBtnPrev" class="secondary" style="display:none;width:auto;">← Назад</button>
+            <div style="flex:1;"></div>
+            <button id="wBtnNext" style="width:auto;">Далее →</button>
+          </div>
+
+        </div><!-- /wizMain -->
+
+        <!-- Sidebar summary -->
+        <div class="wizSidebar">
+          <div class="wizSidebar__title">Сводка брони</div>
+          <div class="wizSummary">
+            <div class="wizSumRow"><span>Гость</span><b id="ws_guest">—</b></div>
+            <div class="wizSumRow"><span>Заезд</span><b id="ws_in">—</b></div>
+            <div class="wizSumRow"><span>Выезд</span><b id="ws_out">—</b></div>
+            <div class="wizSumRow"><span>Ночей</span><b id="ws_nights">—</b></div>
+            <div class="wizSumRow"><span>Гостей</span><b id="ws_guests">—</b></div>
+            <div class="wizSumDivider"></div>
+            <div class="wizSumRow wizSumRow--total"><span>Итого</span><b id="ws_total">0 ₸</b></div>
+            <div class="wizSumRow"><span>Предоплата</span><b id="ws_pre">0 ₸</b></div>
+            <div class="wizSumRow" id="wsDebtRow"><span>Остаток</span><b id="ws_debt">0 ₸</b></div>
+          </div>
+        </div>
+
+      </div><!-- /wizLayout -->
+    </div><!-- /bookingWizard -->
+
+    <!-- ===== BOOKING LIST ===== -->
     <div class="card">
       <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
         <h2 style="margin:0;">Список броней</h2>
@@ -154,23 +244,22 @@
       <div class="hr"></div>
       <div id="bookingsList"></div>
     </div>
+
   </div>
 
   <script src="/app.js"></script>
 
+  <!-- Edit Booking Modal -->
   <div id="editModal" class="modal hidden">
     <div class="modal-content" style="max-width:720px;">
       <div class="modal-header">
         <b>Редактирование брони</b>
         <button id="editClose">✕</button>
       </div>
-
       <div class="modal-body">
         <input type="hidden" id="edit_id" />
-
         <label>Гость</label>
         <select id="edit_guest"></select>
-
         <div class="row grid2">
           <div>
             <label>Заезд</label>
@@ -181,7 +270,6 @@
             <input id="edit_out" type="date" />
           </div>
         </div>
-
         <div class="row grid2">
           <div>
             <label>Гостей</label>
@@ -192,7 +280,6 @@
             <input id="edit_total" type="number" min="0" />
           </div>
         </div>
-
         <div class="row grid2">
           <div>
             <label>Предоплата (₸)</label>
@@ -207,7 +294,6 @@
             </select>
           </div>
         </div>
-
         <label>Статус брони</label>
         <select id="edit_status">
           <option value="REQUEST">Запрос</option>
@@ -215,15 +301,11 @@
           <option value="CANCELLED">Отменено</option>
           <option value="COMPLETED">Завершено</option>
         </select>
-
         <label>Источник</label>
         <input id="edit_source" />
-
         <label>Заметки</label>
         <textarea id="edit_notes" rows="3"></textarea>
-
         <div class="hint" id="editMsg"></div>
-
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
           <button id="btnCancelBooking" class="secondary danger" style="width:auto;">Отменить бронь</button>
           <button id="btnSaveEdit" style="width:auto;">Сохранить</button>

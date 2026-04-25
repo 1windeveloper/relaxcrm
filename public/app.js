@@ -595,7 +595,6 @@ async function initCalendarPage(){
   const monthSel = $("monthSel");
   const yearSel = $("yearSel");
   const hint = $("calHint");
-  const showReqEl = $("calShowRequest");
 
   const modal = $("bookingModal");
   const modalBody = $("modalBody");
@@ -606,7 +605,6 @@ async function initCalendarPage(){
     modal.classList.toggle("hidden", !show);
   }
   $("modalClose")?.addEventListener("click", ()=>showModal(false));
-  $("modalOk")?.addEventListener("click", ()=>showModal(false));
 
   const monthsRu = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
   const dowRu = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
@@ -649,108 +647,119 @@ async function initCalendarPage(){
     bookings = await apiGet("/api/bookings");
   }
 
+  let calFilter = "all"; // "all" | "active" | "request" | "cancelled"
+
   function bookingActiveForCalendar(b){
     const st = String(b.booking_status || "");
-    if(st === "CANCELLED") return false;
-    if(st === "CONFIRMED" || st === "COMPLETED") return true;
-    if(st === "REQUEST") return !!showReqEl?.checked;
+    if(calFilter === "all")       return st !== "CANCELLED";
+    if(calFilter === "active")    return st === "CONFIRMED" || st === "COMPLETED";
+    if(calFilter === "request")   return st === "REQUEST";
+    if(calFilter === "cancelled") return st === "CANCELLED";
     return false;
   }
 
   function bookingsByDay(dateStr){
-    const day = new Date(dateStr + "T00:00:00");
-
     return bookings.filter(b=>{
       if(!bookingActiveForCalendar(b)) return false;
-
       const inStr  = dateOnly(b.check_in);
       const outStr = dateOnly(b.check_out);
-
-      const checkIn  = new Date(inStr  + "T00:00:00");
-      const checkOut = new Date(outStr + "T00:00:00");
-
-      if(isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return false;
-
-      return day >= checkIn && day < checkOut;
+      if(!inStr || !outStr) return false;
+      return dateStr >= inStr && dateStr < outStr;
     });
   }
 
-  function initials(name){
-    const parts = String(name||"").trim().split(/\s+/).filter(Boolean);
-    if(!parts.length) return "RB";
-    const a = parts[0][0] || "";
-    const b = (parts[1]?.[0] || "");
-    return (a + b).toUpperCase();
+  function addDaysCal(dateStr, n){
+    const d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
   }
 
   function render(){
     const first = new Date(curYear, curMonth, 1);
-    const last = new Date(curYear, curMonth+1, 0);
-
-    let startOffset = first.getDay() - 1; // Mon-based
+    const last  = new Date(curYear, curMonth + 1, 0);
+    let startOffset = first.getDay() - 1;
     if(startOffset < 0) startOffset = 6;
 
-    const totalCells = startOffset + last.getDate();
-    const weeks = Math.ceil(totalCells / 7);
-    const cells = weeks * 7;
+    const todayStr  = ymd(new Date());
+    const totalDays = last.getDate();
 
-    const todayStr = ymd(new Date());
+    // Build week arrays
+    const allWeeks = [];
+    let wk = [];
+    for(let i = 0; i < startOffset; i++) wk.push(null);
+    for(let day = 1; day <= totalDays; day++){
+      wk.push(day);
+      if(wk.length === 7){ allWeeks.push(wk); wk = []; }
+    }
+    if(wk.length){ while(wk.length < 7) wk.push(null); allWeeks.push(wk); }
+
+    const visible = bookings.filter(b => bookingActiveForCalendar(b)).sort((a,b)=>{
+      const ai = dateOnly(a.check_in), bi = dateOnly(b.check_in);
+      return ai < bi ? -1 : ai > bi ? 1 : 0;
+    });
 
     let html = "";
-    for(let i=0; i<cells; i++){
-      const dayNum = i - startOffset + 1;
-      if(dayNum < 1 || dayNum > last.getDate()){
-        html += `<div class="calDay" style="opacity:.35; cursor:default;"></div>`;
-        continue;
+    allWeeks.forEach(week => {
+      const slotDates = week.map(d => d ? ymd(new Date(curYear, curMonth, d)) : null);
+
+      html += `<div class="calWeek"><div class="calDayRow">`;
+      week.forEach((day, si) => {
+        if(!day){ html += `<div class="calDay calDay--empty"></div>`; return; }
+        const ds = slotDates[si];
+        const isToday = ds === todayStr;
+        const occ = bookingsByDay(ds).length > 0;
+        html += `<div class="calDay${isToday?" today":""}${occ?" occupied":""}" data-date="${ds}"><div class="n">${day}</div></div>`;
+      });
+      html += `</div>`;
+
+      const firstDate = slotDates.find(Boolean);
+      const lastDate  = [...slotDates].filter(Boolean).slice(-1)[0];
+      const weekBookings = lastDate ? visible.filter(b => {
+        const i = dateOnly(b.check_in), o = dateOnly(b.check_out);
+        return o > firstDate && i <= lastDate;
+      }) : [];
+
+      if(weekBookings.length){
+        html += `<div class="calRangeGrid">`;
+        weekBookings.forEach(b => {
+          const inStr = dateOnly(b.check_in), outStr = dateOnly(b.check_out);
+          const covered = slotDates.map((ds,i)=>({i,ds})).filter(({ds})=>ds&&ds>=inStr&&ds<outStr);
+          if(!covered.length) return;
+          const gcs = covered[0].i + 1, gce = covered[covered.length-1].i + 2;
+          const startsHere = covered[0].ds === inStr;
+          const endsHere   = addDaysCal(covered[covered.length-1].ds, 1) === outStr;
+          const st = String(b.booking_status||"");
+          let cls = "calRange";
+          if(st==="CONFIRMED")  cls+=" calRange--confirmed";
+          else if(st==="COMPLETED") cls+=" calRange--completed";
+          else if(st==="REQUEST")   cls+=" calRange--request";
+          else if(st==="CANCELLED") cls+=" calRange--cancelled";
+          if(startsHere && endsHere) cls+=" calRange--both";
+          else if(startsHere) cls+=" calRange--start";
+          else if(endsHere)   cls+=" calRange--end";
+          const name = (b.full_name||"").split(" ").slice(0,2).join(" ");
+          html += `<div class="${cls}" style="grid-column:${gcs}/${gce};" data-rdate="${covered[0].ds}">`;
+          if(startsHere) html+=`<span class="calRange__arrow">→</span>`;
+          html+=`<span class="calRange__name">${escapeHtml(name)}</span>`;
+          if(endsHere) html+=`<span class="calRange__arrow">←</span>`;
+          html+=`</div>`;
+        });
+        html += `</div>`;
       }
-
-      const d = new Date(curYear, curMonth, dayNum);
-      const ds = ymd(d);
-      const dayBookings = bookingsByDay(ds);
-
-      const occ = dayBookings.length > 0;
-      const isToday = ds === todayStr;
-
-      const tip = occ
-        ? dayBookings.slice(0,4).map(b=>{
-            const nm = b.full_name || "";
-            const stRu = uiBookingStatus(b.booking_status);
-            return `${nm} • ${stRu} • ${dateOnly(b.check_in)}→${dateOnly(b.check_out)}`;
-          }).join("\n") + (dayBookings.length>4 ? `\n+ ещё ${dayBookings.length-4}` : "")
-        : "";
-
-      const mini = occ
-        ? (dayBookings.length === 1
-            ? `<span class="miniTag busy">${initials(dayBookings[0].full_name)}</span>`
-            : `<span class="miniTag busy">${dayBookings.length} брони</span>`
-          )
-        : "";
-
-      html += `
-        <div class="calDay ${occ ? "occupied":""} ${isToday ? "today":""}"
-             data-date="${ds}" ${tip ? `data-tip="${escapeHtml(tip)}"` : ""}>
-          <div class="n">${dayNum}</div>
-          <div class="mini">${mini}</div>
-        </div>
-      `;
-    }
+      html += `</div>`;
+    });
 
     grid.innerHTML = html;
 
     grid.querySelectorAll(".calDay[data-date]").forEach(cell=>{
-      cell.addEventListener("click", ()=>{
-        const ds = cell.getAttribute("data-date");
-        openDayModal(ds);
-      });
+      cell.addEventListener("click", ()=> openDayModal(cell.getAttribute("data-date")));
+    });
+    grid.querySelectorAll(".calRange[data-rdate]").forEach(el=>{
+      el.addEventListener("click", e=>{ e.stopPropagation(); openDayModal(el.getAttribute("data-rdate")); });
     });
 
-    if(hint){
-      if(!!showReqEl?.checked){
-        hint.textContent = "Показываю: Подтверждено/Завершено + Запрос. Отменённые скрыты.";
-      }else{
-        hint.textContent = "Показываю: только Подтверждено/Завершено. Запрос и Отменено скрыты.";
-      }
-    }
+    const labels = {all:"Все брони (кроме отменённых)", active:"Только активные (подтв. + завершено)", request:"Только запросы", cancelled:"Только отменённые"};
+    if(hint) hint.textContent = labels[calFilter] || "";
   }
 
   function openDayModal(ds){
@@ -883,8 +892,13 @@ async function initCalendarPage(){
     render();
   });
 
-  showReqEl?.addEventListener("change", ()=>{
-    render();
+  // Filter tab buttons
+  document.querySelectorAll(".calFilterBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      calFilter = btn.getAttribute("data-calfilter") || "all";
+      document.querySelectorAll(".calFilterBtn").forEach(b => b.classList.toggle("calFilterBtn--active", b === btn));
+      render();
+    });
   });
 
   fillSelects();
@@ -1260,6 +1274,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // V2 pages (improved tables + pagination)
   if (document.getElementById("bookingsList")) {
     try { await initBookingsPageV2(); } catch (e) { console.error("bookings init:", e); }
+    try { await initBookingsWizard(); } catch (e) { console.error("wizard init:", e); }
   }
   if (document.getElementById("guestsList")) {
     try { await initGuestsPageV2(); } catch (e) { console.error("guests init:", e); }
@@ -2458,15 +2473,306 @@ async function initBookingsPageV2() {
   await loadGuestsToSelects();
   await loadBookings();
 
-  // Pre-fill date from calendar "Create booking" link (?date=YYYY-MM-DD)
-  const urlDate = new URLSearchParams(location.search).get("date");
-  if (urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate)) {
-    const ciEl = $("check_in");
-    if (ciEl) {
-      ciEl.value = urlDate;
-      setTimeout(() => ciEl.closest(".card")?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
+  // Refresh list when wizard creates a booking
+  window.addEventListener("booking:created", loadBookings);
+}
+
+// =================== BOOKING WIZARD ===================
+async function initBookingsWizard() {
+  if(!$("bookingWizard")) return;
+
+  let currentStep = 1;
+  let selectedGuestId = null;
+  let selectedGuestName = "";
+  let creatingNewGuest = false;
+  let guestCache = [];
+
+  attachPhoneMask($("wg_phone"));
+
+  async function loadGuestCache() {
+    try { guestCache = await apiGet("/api/guests"); } catch {}
+  }
+
+  function updateSteps() {
+    document.querySelectorAll(".wizStep").forEach(el => {
+      const s = Number(el.getAttribute("data-wstep"));
+      el.classList.toggle("wizStep--active", s === currentStep);
+      el.classList.toggle("wizStep--done", s < currentStep);
+      const numEl = el.querySelector(".wizStep__num");
+      if(numEl) numEl.textContent = s < currentStep ? "✓" : String(s);
+    });
+  }
+
+  function showPanel(step) {
+    for(let i = 1; i <= 4; i++){
+      const p = $("wP" + i);
+      if(p) p.hidden = (i !== step);
+    }
+    const prev = $("wBtnPrev");
+    const next = $("wBtnNext");
+    const nav  = $("wizNavBar");
+    if(prev) prev.style.display = step > 1 ? "" : "none";
+    if(next) next.style.display = step < 4 ? "" : "none";
+    if(nav)  nav.style.display  = step === 4 ? "none" : "";
+    updateSteps();
+  }
+
+  function fmt(v) { return Number(v||0).toLocaleString("ru-RU"); }
+
+  function updateSummary() {
+    const ci = $("w_check_in")?.value || "";
+    const co = $("w_check_out")?.value || "";
+    const total = Number($("w_price_total")?.value || 0);
+    const pre   = Number($("w_prepayment")?.value || 0);
+    const guests = Number($("w_guests_count")?.value || 1);
+    let nights = 0;
+    if(ci && co){ nights = Math.round((new Date(co) - new Date(ci)) / 86400000); }
+    const remaining = Math.max(0, total - pre);
+
+    const s = id => $(id);
+    if(s("ws_guest"))  s("ws_guest").textContent  = selectedGuestName || "—";
+    if(s("ws_in"))     s("ws_in").textContent     = ci || "—";
+    if(s("ws_out"))    s("ws_out").textContent    = co || "—";
+    if(s("ws_nights")) s("ws_nights").textContent = nights > 0 ? String(nights) : "—";
+    if(s("ws_guests")) s("ws_guests").textContent = String(guests);
+    if(s("ws_total"))  s("ws_total").textContent  = fmt(total) + " ₸";
+    if(s("ws_pre"))    s("ws_pre").textContent    = fmt(pre) + " ₸";
+    if(s("ws_debt"))   s("ws_debt").textContent   = fmt(remaining) + " ₸";
+    const debtRow = s("wsDebtRow");
+    if(debtRow) debtRow.classList.toggle("wizSumRow--debt", remaining > 0);
+  }
+
+  function renderGuestResults(q) {
+    const listEl = $("wGuestResults");
+    if(!listEl) return;
+    const lq = q.toLowerCase();
+    const results = !q ? guestCache.slice(0, 12) : guestCache.filter(g => {
+      return (g.full_name||"").toLowerCase().includes(lq) ||
+             (g.phone||"").toLowerCase().includes(lq) ||
+             digitsOnly(g.phone).includes(digitsOnly(q));
+    });
+    if(!results.length){
+      listEl.innerHTML = `<div class="hint" style="padding:8px;">Ничего не найдено — создайте нового гостя</div>`;
+      return;
+    }
+    listEl.innerHTML = results.map(g => `
+      <div class="wizGuestItem${selectedGuestId===g.id?" wizGuestItem--selected":""}" data-gid="${g.id}" data-gname="${escapeHtml(g.full_name||"")}">
+        <b>${highlight(g.full_name||"", q)}</b>
+        <span class="small">${highlight(g.phone||"—", q)}</span>
+      </div>
+    `).join("");
+    listEl.querySelectorAll(".wizGuestItem").forEach(item => {
+      item.addEventListener("click", () => {
+        selectedGuestId   = Number(item.getAttribute("data-gid"));
+        selectedGuestName = item.getAttribute("data-gname");
+        creatingNewGuest  = false;
+        const sel = $("wGuestSelected");
+        if(sel){ sel.textContent = "✓ Выбран: " + selectedGuestName; sel.style.display = ""; }
+        renderGuestResults($("wGuestQ")?.value || "");
+        updateSummary();
+      });
+    });
+  }
+
+  function nightsText(n) {
+    if(n <= 0) return "⚠ Дата выезда раньше заезда";
+    if(n === 1) return "1 ночь";
+    if(n < 5)   return n + " ночи";
+    return n + " ночей";
+  }
+
+  function updateNights() {
+    const ci = $("w_check_in")?.value;
+    const co = $("w_check_out")?.value;
+    const el = $("wNightCount");
+    if(!el) return;
+    if(ci && co){
+      const n = Math.round((new Date(co) - new Date(ci)) / 86400000);
+      el.textContent = nightsText(n);
+      el.style.color = n > 0 ? "var(--brand)" : "var(--danger)";
+    } else {
+      el.textContent = "";
+    }
+    updateSummary();
+  }
+
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function addD(s, n) {
+    const d = new Date(s + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function validateStep(step) {
+    if(step === 1){
+      if(creatingNewGuest){
+        if(!$("wg_name")?.value?.trim()){ showToast("Введите ФИО гостя", "warn"); return false; }
+      } else {
+        if(!selectedGuestId){ showToast("Выберите гостя из списка или создайте нового", "warn"); return false; }
+      }
+    }
+    if(step === 2){
+      const ci = $("w_check_in")?.value, co = $("w_check_out")?.value;
+      if(!ci || !co){ showToast("Укажите даты заезда и выезда", "warn"); return false; }
+      if(new Date(ci) >= new Date(co)){ showToast("Дата выезда должна быть позже даты заезда", "warn"); return false; }
+    }
+    return true;
+  }
+
+  async function goNext() {
+    if(!validateStep(currentStep)) return;
+    if(currentStep === 1 && creatingNewGuest){
+      try {
+        const r = await apiSend("/api/guests", "POST", {
+          full_name: $("wg_name")?.value?.trim(),
+          phone: $("wg_phone")?.value || "",
+          instagram: $("wg_ig")?.value || "",
+        });
+        selectedGuestId   = r.id;
+        selectedGuestName = $("wg_name")?.value?.trim() || "";
+        showToast("Гость создан (ID: " + r.id + ")", "ok");
+        await loadGuestCache();
+      } catch(e) {
+        showToast("Ошибка создания гостя: " + (e?.data?.error || e.message), "error");
+        return;
+      }
+    }
+    currentStep++;
+    showPanel(currentStep);
+    updateSummary();
+  }
+
+  function resetWizard() {
+    currentStep = 1;
+    selectedGuestId = null;
+    selectedGuestName = "";
+    creatingNewGuest = false;
+    // Clear fields
+    ["wGuestQ","wg_name","wg_phone","wg_ig","w_source","w_notes"].forEach(id => {
+      const el = $(id); if(el) el.value = "";
+    });
+    if($("w_check_in"))  $("w_check_in").value  = "";
+    if($("w_check_out")) $("w_check_out").value  = "";
+    if($("w_guests_count")) $("w_guests_count").value = "2";
+    if($("w_price_total"))  $("w_price_total").value  = "0";
+    if($("w_prepayment"))   $("w_prepayment").value   = "50000";
+    if($("w_payment_status")) $("w_payment_status").value = "UNPAID";
+    if($("w_booking_status")) $("w_booking_status").value = "REQUEST";
+    const wGSel = $("wGuestSelected"); if(wGSel){ wGSel.textContent=""; wGSel.style.display="none"; }
+    const wMsg = $("wMsg"); if(wMsg) wMsg.textContent = "";
+    if($("wNightCount")) $("wNightCount").textContent = "";
+    document.querySelectorAll(".wizSourceBtn").forEach(b => b.classList.remove("wizSourceBtn--active"));
+    // Switch back to search mode
+    creatingNewGuest = false;
+    const gs = $("wGuestSearch"); if(gs) gs.hidden = false;
+    const gc = $("wGuestCreate"); if(gc) gc.hidden = true;
+    $("wModeSearch")?.classList.add("wizModeBtn--active");
+    $("wModeNew")?.classList.remove("wizModeBtn--active");
+    showPanel(1);
+    renderGuestResults("");
+    updateSummary();
+  }
+
+  async function submitBooking() {
+    const msg = $("wMsg"); if(msg) msg.textContent = "";
+    const btn = $("wBtnSubmit"); if(btn) btn.disabled = true;
+    try {
+      await apiSend("/api/bookings", "POST", {
+        guest_id: selectedGuestId,
+        check_in: $("w_check_in")?.value,
+        check_out: $("w_check_out")?.value,
+        guests_count: Number($("w_guests_count")?.value || 1),
+        price_total: Number($("w_price_total")?.value || 0),
+        prepayment:  Number($("w_prepayment")?.value || 0),
+        booking_status: $("w_booking_status")?.value || "REQUEST",
+        payment_status: $("w_payment_status")?.value || "UNPAID",
+        source: $("w_source")?.value || "",
+        notes:  $("w_notes")?.value || "",
+      });
+      showToast("Бронь создана! ✅", "ok");
+      window.dispatchEvent(new CustomEvent("booking:created"));
+      resetWizard();
+    } catch(e) {
+      if(msg) msg.textContent = "❌ " + (e?.data?.error || e.message);
+    } finally {
+      if(btn) btn.disabled = false;
     }
   }
+
+  // Guest mode toggle
+  $("wModeSearch")?.addEventListener("click", () => {
+    creatingNewGuest = false;
+    const gs = $("wGuestSearch"); if(gs) gs.hidden = false;
+    const gc = $("wGuestCreate"); if(gc) gc.hidden = true;
+    $("wModeSearch")?.classList.add("wizModeBtn--active");
+    $("wModeNew")?.classList.remove("wizModeBtn--active");
+  });
+  $("wModeNew")?.addEventListener("click", () => {
+    creatingNewGuest = true;
+    const gs = $("wGuestSearch"); if(gs) gs.hidden = true;
+    const gc = $("wGuestCreate"); if(gc) gc.hidden = false;
+    selectedGuestId = null; selectedGuestName = "";
+    $("wModeNew")?.classList.add("wizModeBtn--active");
+    $("wModeSearch")?.classList.remove("wizModeBtn--active");
+    updateSummary();
+  });
+
+  $("wGuestQ")?.addEventListener("input", () => renderGuestResults($("wGuestQ").value));
+  $("wBtnNext")?.addEventListener("click", goNext);
+  $("wBtnPrev")?.addEventListener("click", () => { currentStep--; showPanel(currentStep); updateSummary(); });
+  $("wBtnSubmit")?.addEventListener("click", submitBooking);
+
+  $("w_check_in")?.addEventListener("change", updateNights);
+  $("w_check_out")?.addEventListener("change", updateNights);
+  $("w_price_total")?.addEventListener("input", updateSummary);
+  $("w_prepayment")?.addEventListener("input", updateSummary);
+  $("w_guests_count")?.addEventListener("input", updateSummary);
+
+  // Quick date actions
+  $("wQToday")?.addEventListener("click", () => {
+    const t = todayISO();
+    if($("w_check_in"))  $("w_check_in").value  = t;
+    if($("w_check_out")) $("w_check_out").value = addD(t, 1);
+    updateNights();
+  });
+  $("wQTomorrow")?.addEventListener("click", () => {
+    const t = addD(todayISO(), 1);
+    if($("w_check_in"))  $("w_check_in").value  = t;
+    if($("w_check_out")) $("w_check_out").value = addD(t, 1);
+    updateNights();
+  });
+  $("wQWeekend")?.addEventListener("click", () => {
+    const d = new Date();
+    const daysToSat = (6 - d.getDay() + 7) % 7 || 7;
+    d.setDate(d.getDate() + daysToSat);
+    const sat = d.toISOString().slice(0, 10);
+    if($("w_check_in"))  $("w_check_in").value  = sat;
+    if($("w_check_out")) $("w_check_out").value = addD(sat, 2);
+    updateNights();
+  });
+
+  // Source buttons
+  document.querySelectorAll(".wizSourceBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const src = btn.getAttribute("data-src");
+      const inp = $("w_source"); if(inp) inp.value = src;
+      document.querySelectorAll(".wizSourceBtn").forEach(b => b.classList.remove("wizSourceBtn--active"));
+      btn.classList.add("wizSourceBtn--active");
+    });
+  });
+
+  // Pre-fill date from calendar link (?date=YYYY-MM-DD) and jump to step 2
+  const urlDate = new URLSearchParams(location.search).get("date");
+  if(urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate)){
+    if($("w_check_in"))  $("w_check_in").value  = urlDate;
+    if($("w_check_out")) $("w_check_out").value = addD(urlDate, 1);
+    updateNights();
+  }
+
+  await loadGuestCache();
+  showPanel(1);
+  renderGuestResults("");
+  updateSummary();
 }
 
 // =================== FINANCE PAGE TABS ===================
