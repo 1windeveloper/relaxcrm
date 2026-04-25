@@ -61,7 +61,14 @@ async function initDb() {
     );
   `);
 
-  console.log("✅ Postgres connected + tables ensured");
+  // Safe performance indexes — idempotent, never drop/alter existing data
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_bookings_check_in  ON bookings(check_in)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_bookings_check_out ON bookings(check_out)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_bookings_status    ON bookings(booking_status)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_bookings_guest     ON bookings(guest_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_expenses_date      ON expenses(exp_date)`);
+
+  console.log("✅ Postgres connected + tables + indexes ensured");
 }
 
 module.exports = { db, initDb, normPhone };

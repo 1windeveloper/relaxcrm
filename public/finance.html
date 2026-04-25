@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Доходы — Relax Borovoe CRM</title>
+  <title>Финансы — Relax Borovoe CRM</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -21,106 +21,223 @@
           <div class="small brandSub">CRM • брони • календарь • финансы</div>
         </div>
       </a>
-
       <nav class="navActions">
-  <a class="navItem" href="/bookings.html">Брони</a>
-  <a class="navItem" href="/calendar.html">Календарь</a>
-  <a class="navItem" href="/analytics.html">Аналитика</a>
-  <a class="navItem" href="/finance.html">Доходы</a>
-  <a class="navItem" href="/expenses.html">Расходы</a>
-  <a class="navItem" href="/guests.html">Гости</a>
-
-  <!-- 👇 ВЫХОД -->
-  <button id="logoutBtn" class="navLogout">Выйти🔒</button>
-</nav>
+        <a class="navItem" href="/bookings.html">Брони</a>
+        <a class="navItem" href="/calendar.html">Календарь</a>
+        <a class="navItem" href="/finance.html">Финансы</a>
+        <a class="navItem" href="/guests.html">Гости</a>
+        <a class="navItem" href="/analytics.html">Аналитика</a>
+        <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+      </nav>
     </div>
   </div>
 
-  <div class="container">
+  <div class="container" style="padding-top:14px;">
 
-    <div class="card">
-      <h1 style="margin:0 0 6px;">Доходы</h1>
-      <div class="small" style="margin-bottom:12px;">
-        Выручка берётся из броней. Чистая прибыль = выручка − расходы.
-      </div>
-
-      <hr style="opacity:.35;margin:14px 0;">
-
-      <h3 style="margin:0 0 10px;">Период отчёта</h3>
-
-      <div class="formGrid">
-        <div>
-          <div class="fieldLabel">Год</div>
-          <select id="yearPick"></select>
-        </div>
-
-        <div>
-          <div class="fieldLabel">Месяц</div>
-          <select id="monthPick"></select>
-        </div>
-      </div>
-
-      <div class="checkRow" style="margin-top:10px;">
-        <input id="allTime" type="checkbox" />
-        <label for="allTime">Показать за всё время (без выбора месяца)</label>
-      </div>
-
-      <button id="btnLoadStats" class="primary" style="margin-top:12px;">Показать</button>
-
-      <div id="statsMsg" class="hint" style="margin-top:8px;"></div>
+    <div style="margin-bottom:14px;">
+      <h1 style="margin:0 0 4px;font-size:26px;">Финансы</h1>
+      <div class="small">Выручка, расходы, чистая прибыль и экспорт</div>
     </div>
 
-    <div class="card" style="margin-top:14px;">
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
-        <h3 style="margin:0;">Итог</h3>
-        <span class="badge ok">Готово</span>
-      </div>
-
-      <div style="margin-top:10px;line-height:1.6;">
-        <div><b>Грязная прибыль (выручка):</b> <span id="rev">0</span> ₸</div>
-        <div><b>Расходы:</b> <span id="exp">0</span> ₸</div>
-        <hr style="opacity:.35;margin:10px 0;">
-        <div><b>Чистая прибыль:</b> <span id="net" class="pos">0</span> ₸</div>
-      </div>
+    <!-- Tabs -->
+    <div class="finTabs">
+      <button class="finTab finTab--active" data-tab="income">💰 Выручка</button>
+      <button class="finTab" data-tab="expenses">🧯 Расходы</button>
+      <button class="finTab" data-tab="summary">📊 Итого за год</button>
     </div>
 
-    <div class="card" style="margin-top:14px;">
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
-        <div style="min-width:260px;flex:1;">
-          <h3 style="margin:0 0 8px;">График по месяцам</h3>
-          <div class="fieldLabel">Метрика графика</div>
-          <select id="chartMetric">
-            <option value="revenue">Выручка</option>
-            <option value="expenses">Расходы</option>
-            <option value="net">Чистая прибыль</option>
-          </select>
+    <!-- ===================== INCOME TAB ===================== -->
+    <div id="tab-income" class="finTabContent">
 
-          <div class="small" style="margin-top:8px;opacity:.75;">
-            График обновляется автоматически при переключении.
+      <div class="card">
+        <h3 style="margin:0 0 10px;">Период отчёта</h3>
+
+        <div class="formGrid">
+          <div>
+            <div class="fieldLabel">Год</div>
+            <select id="yearPick"></select>
+          </div>
+          <div>
+            <div class="fieldLabel">Месяц</div>
+            <select id="monthPick"></select>
           </div>
         </div>
 
-        <div class="card" style="margin:0;min-width:260px;flex:0 0 320px;">
-          <div class="small">Итого за год</div>
-          <div style="font-size:22px;font-weight:800;margin:2px 0 10px;" id="yearTotal">0 ₸</div>
-          <div class="small">Среднее за месяц</div>
-          <div style="font-size:18px;font-weight:800;margin-top:2px;" id="yearAvg">0 ₸</div>
-          <div class="small" style="margin-top:10px;opacity:.75;">Считается по выбранной метрике графика.</div>
+        <div class="checkRow" style="margin-top:10px;">
+          <input id="allTime" type="checkbox" />
+          <label for="allTime">За всё время (без выбора месяца)</label>
+        </div>
+
+        <button id="btnLoadStats" style="margin-top:12px;max-width:200px;">Показать</button>
+        <div id="statsMsg" class="hint" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div style="margin-top:4px;line-height:1.9;">
+          <div><b>Грязная прибыль (выручка):</b> <span id="rev">0</span> ₸</div>
+          <div><b>Расходы:</b> <span id="exp">0</span> ₸</div>
+          <hr style="opacity:.35;margin:10px 0;">
+          <div><b>Чистая прибыль:</b> <span id="net" class="pos">0</span> ₸</div>
         </div>
       </div>
 
-      <div style="margin-top:12px;">
-  <canvas id="revChart" style="width:100%; height:320px; border:1px solid #e5e7eb; border-radius:16px;"></canvas>
-</div>
+      <div class="card" style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px;">
+          <div style="min-width:200px;flex:1;">
+            <h3 style="margin:0 0 8px;">График по месяцам</h3>
+            <div class="fieldLabel">Метрика графика</div>
+            <select id="chartMetric">
+              <option value="revenue">Выручка</option>
+              <option value="expenses">Расходы</option>
+              <option value="net">Чистая прибыль</option>
+            </select>
+            <div class="small" style="margin-top:8px;opacity:.75;">График обновляется при переключении.</div>
+          </div>
+          <div class="card" style="margin:0;min-width:200px;flex:0 0 280px;">
+            <div class="small">Итого за год</div>
+            <div style="font-size:22px;font-weight:800;margin:2px 0 10px;" id="yearTotal">0 ₸</div>
+            <div class="small">Среднее за месяц</div>
+            <div style="font-size:18px;font-weight:800;margin-top:2px;" id="yearAvg">0 ₸</div>
+            <div class="small" style="margin-top:10px;opacity:.75;">По выбранной метрике.</div>
+          </div>
+        </div>
 
-      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px;">
-        <button id="btnExportXlsx" class="secondary" style="width:auto;">📥 Экспорт в Excel (год)</button>
-        <button id="btnExport" class="secondary" style="width:auto;">Экспорт в CSV (год)</button>
+        <canvas id="revChart" style="width:100%;height:280px;border:1px solid #e5e7eb;border-radius:12px;"></canvas>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px;">
+          <button id="btnExportXlsx" class="secondary" style="width:auto;">📥 Экспорт Excel</button>
+          <button id="btnExport" class="secondary" style="width:auto;">Экспорт CSV</button>
+        </div>
       </div>
-    </div>
 
+    </div><!-- /tab-income -->
+
+    <!-- ===================== EXPENSES TAB ===================== -->
+    <div id="tab-expenses" class="finTabContent" style="display:none;">
+
+      <div class="card">
+        <h3 style="margin:0 0 8px;">Добавить расход</h3>
+        <div class="small" style="margin-bottom:12px;">Фиксируйте все траты для корректного расчёта прибыли</div>
+
+        <div class="formGrid">
+          <div>
+            <label>Дата</label>
+            <input id="exp_date" type="date" />
+          </div>
+          <div>
+            <label>Сумма (₸)</label>
+            <input id="exp_amount" type="number" min="0" value="0" />
+          </div>
+        </div>
+
+        <label style="margin-top:10px;">На что потратили</label>
+        <input id="exp_cat" placeholder="Продукты, уборка, ремонт, реклама…" />
+
+        <label>Комментарий (необязательно)</label>
+        <input id="exp_note" placeholder="Например: купили уголь" />
+
+        <div style="height:12px"></div>
+        <button id="btnAddExpense" style="max-width:220px;">Сохранить расход</button>
+        <div class="hint" id="expMsg"></div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+          <div>
+            <h3 style="margin:0;">Список расходов</h3>
+            <div class="small">Сортировка, редактирование, удаление, экспорт</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="btnExportExp" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">📥 Excel</button>
+            <button id="btnReloadExp" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">Обновить</button>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <div style="flex:1;min-width:140px;">
+            <label style="margin-bottom:4px;">Период с</label>
+            <input id="expFilterFrom" type="date" />
+          </div>
+          <div style="flex:1;min-width:140px;">
+            <label style="margin-bottom:4px;">Период по</label>
+            <input id="expFilterTo" type="date" />
+          </div>
+          <span class="pillTiny" style="margin-top:auto;">Всего: <span id="expFound" style="margin-left:4px;">0</span></span>
+        </div>
+
+        <div class="hr"></div>
+        <div id="expList"></div>
+      </div>
+
+    </div><!-- /tab-expenses -->
+
+    <!-- ===================== SUMMARY TAB ===================== -->
+    <div id="tab-summary" class="finTabContent" style="display:none;">
+
+      <div class="kpiGrid" style="margin-bottom:14px;">
+        <div class="kpiCard kpiCard--green">
+          <div class="kpiCard__label">Выручка всего</div>
+          <div class="kpiCard__value" id="sumRevAll"><span class="kpiSpin"></span></div>
+          <div class="kpiCard__sub">₸ за всё время</div>
+        </div>
+        <div class="kpiCard kpiCard--orange">
+          <div class="kpiCard__label">Расходы всего</div>
+          <div class="kpiCard__value" id="sumExpAll"><span class="kpiSpin"></span></div>
+          <div class="kpiCard__sub">₸ за всё время</div>
+        </div>
+        <div class="kpiCard kpiCard--blue">
+          <div class="kpiCard__label">Чистая прибыль</div>
+          <div class="kpiCard__value" id="sumNetAll"><span class="kpiSpin"></span></div>
+          <div class="kpiCard__sub">₸ за всё время</div>
+        </div>
+        <div class="kpiCard kpiCard--purple">
+          <div class="kpiCard__label">Активных броней</div>
+          <div class="kpiCard__value" id="sumBookCount"><span class="kpiSpin"></span></div>
+          <div class="kpiCard__sub">подтв. + завершено</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 12px;">По месяцам — <span id="sumYear"></span></h3>
+        <div id="summaryTable">
+          <div class="emptyState"><div class="kpiSpin" style="margin:0 auto;"></div></div>
+        </div>
+      </div>
+
+    </div><!-- /tab-summary -->
+
+    <div style="height:32px;"></div>
   </div>
 
   <script src="/app.js"></script>
+
+  <!-- Edit Expense Modal -->
+  <div id="editExpenseModal" class="modal hidden">
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header">
+        <b>Редактировать расход</b>
+        <button id="eeClose" class="secondary" style="width:auto;">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Дата</label>
+        <input id="ee_date" type="date" />
+        <label>Категория</label>
+        <input id="ee_cat" placeholder="Продукты, уборка, ремонт..." />
+        <label>Сумма (₸)</label>
+        <input id="ee_amount" type="number" min="0" value="0" />
+        <label>Комментарий</label>
+        <input id="ee_note" placeholder="Необязательно" />
+        <div class="hint" id="eeMsg"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+          <button id="btnSaveExpense" style="width:auto;">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

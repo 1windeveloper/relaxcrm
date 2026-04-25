@@ -775,7 +775,17 @@ async function initCalendarPage(){
 
   if(modalBody){
     if(!dayBookings.length){
-      modalBody.innerHTML = `<div class="notice">На этот день броней нет ✅</div>`;
+      modalBody.innerHTML = `
+        <div class="emptyState" style="padding:24px 16px;">
+          <div class="emptyState__icon">🏠</div>
+          <div class="emptyState__title">Свободно</div>
+          <div class="emptyState__sub">На ${escapeHtml(ds)} броней нет</div>
+          <a href="/bookings.html?date=${encodeURIComponent(ds)}" class="btnPrimary"
+             style="margin-top:16px;display:inline-flex;text-decoration:none;font-size:14px;padding:10px 20px;border-radius:12px;">
+            + Создать бронь
+          </a>
+        </div>
+      `;
     }else{
       const cards = dayBookings.map(b=>{
         const st = String(b.booking_status || "");
@@ -1262,6 +1272,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   try { await initCalendarPage(); } catch (e) {}
   try { await initFinancePage(); } catch (e) {}
 
+  // Finance tabs (finance.html only)
+  try { initFinanceTabs(); } catch (e) {}
+
   // New pages
   try { await initAnalyticsPage(); } catch (e) { console.error("analytics init:", e); }
   try { await initIndexPage(); } catch (e) {}
@@ -1507,7 +1520,20 @@ async function initAnalyticsPage() {
       renderChart(data);
       renderStatusBreakdown(data.status_breakdown || {});
     } catch (e) {
-      showToast("Ошибка загрузки аналитики", "error");
+      showToast("Ошибка загрузки аналитики: " + (e?.message || "нет данных"), "error");
+      // Clear spinners — never leave them spinning forever
+      const z0 = "0 ₸", z = "0";
+      if (kqToday) kqToday.textContent = z0;
+      if (kqWeek)  kqWeek.textContent  = z0;
+      if (kqMonth) kqMonth.textContent = z0;
+      if (kqAll)   kqAll.textContent   = z0;
+      if (kpRevenue)  kpRevenue.textContent  = z;
+      if (kpExpenses) kpExpenses.textContent = z;
+      if (kpNet)      kpNet.textContent      = z;
+      if (kpCount)    kpCount.textContent    = z;
+      if (kpAvg)      kpAvg.textContent      = z;
+      if (canvas)     canvas.style.display   = "none";
+      if (chartEmpty) chartEmpty.style.display = "flex";
     }
   }
 
@@ -2431,4 +2457,135 @@ async function initBookingsPageV2() {
 
   await loadGuestsToSelects();
   await loadBookings();
+
+  // Pre-fill date from calendar "Create booking" link (?date=YYYY-MM-DD)
+  const urlDate = new URLSearchParams(location.search).get("date");
+  if (urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate)) {
+    const ciEl = $("check_in");
+    if (ciEl) {
+      ciEl.value = urlDate;
+      setTimeout(() => ciEl.closest(".card")?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
+    }
+  }
+}
+
+// =================== FINANCE PAGE TABS ===================
+function initFinanceTabs() {
+  const tabs = document.querySelectorAll(".finTab");
+  if (!tabs.length) return;
+
+  function switchTab(name) {
+    tabs.forEach(t => t.classList.toggle("finTab--active", t.dataset.tab === name));
+    document.querySelectorAll(".finTabContent").forEach(c => {
+      c.style.display = (c.id === "tab-" + name) ? "" : "none";
+    });
+    if (name === "summary") loadSummaryTab();
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const name = tab.dataset.tab;
+      switchTab(name);
+      history.replaceState(null, "", "#" + name);
+    });
+  });
+
+  // Activate tab from URL hash (e.g. /finance.html#expenses)
+  const hash = location.hash.slice(1);
+  if (hash && document.getElementById("tab-" + hash)) {
+    switchTab(hash);
+  }
+}
+
+// =================== FINANCE SUMMARY TAB ===================
+let _summaryLoaded = false;
+async function loadSummaryTab() {
+  if (_summaryLoaded) return;
+  _summaryLoaded = true;
+
+  const fmt = v => Number(v || 0).toLocaleString("ru-RU");
+  const year = new Date().getFullYear();
+  const sumYearEl = $("sumYear");
+  if (sumYearEl) sumYearEl.textContent = String(year);
+
+  try {
+    const [statsAll, monthly] = await Promise.all([
+      apiGet("/api/stats"),
+      apiGet("/api/profit-by-month?year=" + year),
+    ]);
+
+    const sumRevAll   = $("sumRevAll");
+    const sumExpAll   = $("sumExpAll");
+    const sumNetAll   = $("sumNetAll");
+    const sumBookCount = $("sumBookCount");
+
+    if (sumRevAll) sumRevAll.textContent = fmt(statsAll.revenue) + " ₸";
+    if (sumExpAll) sumExpAll.textContent = fmt(statsAll.expenses) + " ₸";
+    if (sumNetAll) {
+      const net = Number(statsAll.net || 0);
+      sumNetAll.textContent = fmt(net) + " ₸";
+      sumNetAll.className = "kpiCard__value " + (net >= 0 ? "kpiCard__value--green" : "kpiCard__value--red");
+    }
+
+    // Booking count from analytics
+    try {
+      const anData = await apiGet("/api/analytics");
+      if (sumBookCount) sumBookCount.textContent = String(anData.kpi?.bookings_count || 0);
+    } catch {
+      if (sumBookCount) sumBookCount.textContent = "—";
+    }
+
+    // Monthly table
+    const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+    const months = monthly.months || [];
+    const tableEl = $("summaryTable");
+    if (!tableEl) return;
+
+    const totalRev = months.reduce((s, m) => s + Number(m.revenue || 0), 0);
+    const totalExp = months.reduce((s, m) => s + Number(m.expenses || 0), 0);
+    const totalNet = months.reduce((s, m) => s + Number(m.net || 0), 0);
+
+    tableEl.innerHTML = `
+      <div class="tableWrap">
+        <table class="dataTable">
+          <thead>
+            <tr>
+              <th>Месяц</th>
+              <th class="tdRight">Выручка (₸)</th>
+              <th class="tdRight">Расходы (₸)</th>
+              <th class="tdRight">Прибыль (₸)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${months.map((m, i) => {
+              const net = Number(m.net || 0);
+              const hasData = m.revenue > 0 || m.expenses > 0;
+              return `<tr style="${!hasData ? "opacity:.45;" : ""}">
+                <td>${monthNames[i] || m.month}</td>
+                <td class="tdRight">${hasData ? fmt(m.revenue) : "—"}</td>
+                <td class="tdRight">${hasData ? fmt(m.expenses) : "—"}</td>
+                <td class="tdRight ${net >= 0 ? "pos" : "neg"}">${hasData ? fmt(net) : "—"}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight:900;background:#f8fafc;border-top:2px solid var(--border);">
+              <td><b>Итого</b></td>
+              <td class="tdRight"><b>${fmt(totalRev)}</b></td>
+              <td class="tdRight"><b>${fmt(totalExp)}</b></td>
+              <td class="tdRight ${totalNet >= 0 ? "pos" : "neg"}"><b>${fmt(totalNet)}</b></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+  } catch (e) {
+    showToast("Ошибка загрузки итогов: " + (e?.message || ""), "error");
+    ["sumRevAll","sumExpAll","sumNetAll","sumBookCount"].forEach(id => {
+      const el = $(id);
+      if (el) el.textContent = "—";
+    });
+    const tableEl = $("summaryTable");
+    if (tableEl) tableEl.innerHTML = `<div class="emptyState"><div class="emptyState__icon">⚠️</div><div class="emptyState__sub">Не удалось загрузить данные</div></div>`;
+  }
 }
