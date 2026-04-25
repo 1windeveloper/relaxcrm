@@ -25,6 +25,7 @@
      <nav class="navActions">
   <a class="navItem" href="/bookings.html">Брони</a>
   <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/analytics.html">Аналитика</a>
   <a class="navItem" href="/finance.html">Доходы</a>
   <a class="navItem" href="/expenses.html">Расходы</a>
   <a class="navItem" href="/guests.html">Гости</a>
@@ -118,16 +119,33 @@
     <div style="height:12px"></div>
 
     <div class="card">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
         <h2 style="margin:0;">Список броней</h2>
-        <button id="btnReload" class="secondary" style="max-width:220px;">Обновить список</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btnExportBookings" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">📥 Excel</button>
+          <button id="btnReload" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">Обновить</button>
+        </div>
       </div>
 
       <div style="height:10px"></div>
-      <label>Поиск по имени или телефону</label>
-      <input id="filter" placeholder="Введите имя или телефон..." />
 
-      <!-- ✅ НОВОЕ -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:1;min-width:200px;">
+          <label style="margin-bottom:4px;">Поиск по имени или телефону</label>
+          <input id="filter" placeholder="Введите имя или телефон..." />
+        </div>
+        <div style="min-width:180px;">
+          <label style="margin-bottom:4px;">Фильтр по статусу</label>
+          <select id="bookingStatusFilter">
+            <option value="">Все статусы</option>
+            <option value="REQUEST">Запрос</option>
+            <option value="CONFIRMED">Подтверждено</option>
+            <option value="COMPLETED">Завершено</option>
+            <option value="CANCELLED">Отменено</option>
+          </select>
+        </div>
+      </div>
+
       <div class="searchMeta">
         <div class="left">
           <span class="pillTiny">Найдено: <span id="bookingsFound">0</span></span>
@@ -137,7 +155,7 @@
       </div>
 
       <div class="hr"></div>
-      <div class="list" id="bookingsList"></div>
+      <div id="bookingsList"></div>
     </div>
   </div>
 

@@ -23,6 +23,7 @@
       <nav class="navActions">
   <a class="navItem" href="/bookings.html">Брони</a>
   <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/analytics.html">Аналитика</a>
   <a class="navItem" href="/finance.html">Доходы</a>
   <a class="navItem" href="/expenses.html">Расходы</a>
   <a class="navItem" href="/guests.html">Гости</a>
@@ -53,18 +54,22 @@
           <a class="btnGhost" href="/calendar.html">Посмотреть календарь</a>
         </div>
 
-        <div class="heroStats">
-          <div class="stat">
-            <div class="statLabel">Календарь</div>
-            <div class="statValue">Занято / Свободно</div>
+        <!-- Live stats from API -->
+        <div class="liveStatGrid" id="liveStatGrid">
+          <div class="liveStat">
+            <div class="liveStat__label">Этот месяц</div>
+            <div class="liveStat__value"><span class="kpiSpin"></span></div>
+            <div class="liveStat__sub">выручка</div>
           </div>
-          <div class="stat">
-            <div class="statLabel">Финансы</div>
-            <div class="statValue">Грязная / Чистая</div>
+          <div class="liveStat">
+            <div class="liveStat__label">Активные брони</div>
+            <div class="liveStat__value"><span class="kpiSpin"></span></div>
+            <div class="liveStat__sub">всего</div>
           </div>
-          <div class="stat">
-            <div class="statLabel">Гости</div>
-            <div class="statValue">Все контакты + ID</div>
+          <div class="liveStat">
+            <div class="liveStat__label">Сегодня</div>
+            <div class="liveStat__value"><span class="kpiSpin"></span></div>
+            <div class="liveStat__sub">выручка</div>
           </div>
         </div>
       </div>
@@ -120,15 +125,13 @@
               <div class="quickDesc">ФИО, телефон, Instagram, ID</div>
             </a>
 
-            <div class="quickItem quickItem--info">
+            <a class="quickItem" href="/analytics.html">
               <div class="quickTop">
-                <div class="quickEmoji">⚡</div>
-                <div class="quickName">Совет</div>
+                <div class="quickEmoji">📈</div>
+                <div class="quickName">Аналитика</div>
               </div>
-              <div class="quickDesc">
-                Добавил бронь — обнови «Доходы», график подтянет данные сразу.
-              </div>
-            </div>
+              <div class="quickDesc">KPI, графики, средний чек, экспорт в Excel</div>
+            </a>
           </div>
         </div>
 

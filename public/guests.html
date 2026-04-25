@@ -25,6 +25,7 @@
      <nav class="navActions">
   <a class="navItem" href="/bookings.html">Брони</a>
   <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/analytics.html">Аналитика</a>
   <a class="navItem" href="/finance.html">Доходы</a>
   <a class="navItem" href="/expenses.html">Расходы</a>
   <a class="navItem" href="/guests.html">Гости</a>
@@ -77,21 +78,22 @@
     <div style="height:14px;"></div>
 
     <div class="card">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
         <div>
           <h2 style="margin:0;">Все гости</h2>
-          <div class="small">Поиск и история бронирований.</div>
+          <div class="small">Поиск, история, редактирование, экспорт.</div>
         </div>
-        <button id="btnReloadGuests" class="secondary" style="max-width:220px;">Обновить</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btnExportGuests" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">📥 Excel</button>
+          <button id="btnReloadGuests" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">Обновить</button>
+        </div>
       </div>
 
       <div class="hr"></div>
 
       <label style="margin-top:0;">Поиск</label>
       <input id="guestSearch" placeholder="ФИО / телефон / Instagram" />
-      <div class="hint">Найдет по части текста.</div>
 
-      <!-- ✅ НОВОЕ -->
       <div class="searchMeta">
         <div class="left">
           <span class="pillTiny">Найдено: <span id="guestsFound">0</span></span>
@@ -101,7 +103,7 @@
       </div>
 
       <div class="hr"></div>
-      <div class="list" id="guestsList"></div>
+      <div id="guestsList"></div>
     </div>
 
   </div>
@@ -142,5 +144,29 @@
   </div>
 
   <script src="/app.js"></script>
+
+  <!-- Edit Guest Modal -->
+  <div id="editGuestModal" class="modal hidden">
+    <div class="modal-content" style="max-width:520px;">
+      <div class="modal-header">
+        <b>Редактировать гостя</b>
+        <button id="egClose" class="secondary" style="width:auto;">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>ФИО</label>
+        <input id="eg_name" placeholder="Иванов Иван" />
+        <label>Телефон</label>
+        <input id="eg_phone" placeholder="8707..." />
+        <label>Instagram</label>
+        <input id="eg_ig" placeholder="@username" />
+        <label>Заметки</label>
+        <textarea id="eg_note" rows="3" placeholder="Любые заметки о госте..."></textarea>
+        <div class="hint" id="egMsg"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+          <button id="btnSaveGuest" style="width:auto;">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

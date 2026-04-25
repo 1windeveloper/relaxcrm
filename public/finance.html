@@ -25,6 +25,7 @@
       <nav class="navActions">
   <a class="navItem" href="/bookings.html">Брони</a>
   <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/analytics.html">Аналитика</a>
   <a class="navItem" href="/finance.html">Доходы</a>
   <a class="navItem" href="/expenses.html">Расходы</a>
   <a class="navItem" href="/guests.html">Гости</a>
@@ -112,7 +113,8 @@
   <canvas id="revChart" style="width:100%; height:320px; border:1px solid #e5e7eb; border-radius:16px;"></canvas>
 </div>
 
-      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button id="btnExportXlsx" class="secondary" style="width:auto;">📥 Экспорт в Excel (год)</button>
         <button id="btnExport" class="secondary" style="width:auto;">Экспорт в CSV (год)</button>
       </div>
     </div>

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Аналитика — Relax Borovoe CRM</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <div class="topbar topbar--glass">
+    <div class="container nav">
+      <a class="brandLink" href="/index.html">
+        <div class="logoWrap">
+          <img class="logoImg" src="/logo.png" alt="Relax Borovoe"
+               onerror="this.style.display='none'; this.parentElement.classList.add('logoFallback')" />
+          <div class="logoFallbackBadge">RB</div>
+        </div>
+        <div>
+          <b class="brandTitle">Relax Borovoe</b>
+          <div class="small brandSub">CRM • брони • календарь • финансы</div>
+        </div>
+      </a>
+      <nav class="navActions">
+        <a class="navItem" href="/bookings.html">Брони</a>
+        <a class="navItem" href="/calendar.html">Календарь</a>
+        <a class="navItem" href="/analytics.html">Аналитика</a>
+        <a class="navItem" href="/finance.html">Доходы</a>
+        <a class="navItem" href="/expenses.html">Расходы</a>
+        <a class="navItem" href="/guests.html">Гости</a>
+        <button id="logoutBtn" class="navLogout">Выйти🔒</button>
+      </nav>
+    </div>
+  </div>
+
+  <div class="container" style="padding-top:14px;">
+
+    <!-- Page title -->
+    <div style="margin-bottom:14px;">
+      <h1 style="margin:0 0 4px;font-size:26px;">Аналитика доходов</h1>
+      <div class="small">Выручка, расходы, чистая прибыль, средний чек, графики</div>
+    </div>
+
+    <!-- Quick KPI (today / week / month / all-time — always live) -->
+    <div class="kpiGrid" id="kpiQuick">
+      <div class="kpiCard kpiCard--blue" id="kpiToday">
+        <div class="kpiCard__label">Сегодня</div>
+        <div class="kpiCard__value" id="kqToday"><span class="kpiSpin"></span></div>
+        <div class="kpiCard__sub">выручка</div>
+      </div>
+      <div class="kpiCard kpiCard--purple" id="kpiWeek">
+        <div class="kpiCard__label">Эта неделя</div>
+        <div class="kpiCard__value" id="kqWeek"><span class="kpiSpin"></span></div>
+        <div class="kpiCard__sub">выручка</div>
+      </div>
+      <div class="kpiCard kpiCard--green" id="kpiMonth">
+        <div class="kpiCard__label">Этот месяц</div>
+        <div class="kpiCard__value" id="kqMonth"><span class="kpiSpin"></span></div>
+        <div class="kpiCard__sub">выручка</div>
+      </div>
+      <div class="kpiCard kpiCard--orange" id="kpiAll">
+        <div class="kpiCard__label">За всё время</div>
+        <div class="kpiCard__value" id="kqAll"><span class="kpiSpin"></span></div>
+        <div class="kpiCard__sub">суммарная выручка</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card" style="margin-top:14px;">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:1;min-width:140px;">
+          <label>Дата с</label>
+          <input id="anDateFrom" type="date" />
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <label>Дата по</label>
+          <input id="anDateTo" type="date" />
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <label>Статус брони</label>
+          <select id="anStatus">
+            <option value="">Все (кроме отменённых)</option>
+            <option value="CONFIRMED">Подтверждено</option>
+            <option value="COMPLETED">Завершено</option>
+            <option value="REQUEST">Запрос</option>
+            <option value="CANCELLED">Отменено</option>
+          </select>
+        </div>
+        <div>
+          <button id="btnApplyFilter" style="width:auto;padding:12px 20px;">Показать</button>
+        </div>
+        <div>
+          <button id="btnResetFilter" class="secondary" style="width:auto;padding:12px 20px;">Сброс</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Period KPI cards -->
+    <div class="kpiGrid kpiGrid--5" style="margin-top:14px;" id="kpiPeriod">
+      <div class="kpiCard">
+        <div class="kpiCard__icon">💰</div>
+        <div class="kpiCard__label">Выручка за период</div>
+        <div class="kpiCard__value" id="kpRevenue">—</div>
+        <div class="kpiCard__sub">₸</div>
+      </div>
+      <div class="kpiCard">
+        <div class="kpiCard__icon">🧯</div>
+        <div class="kpiCard__label">Расходы за период</div>
+        <div class="kpiCard__value kpiCard__value--red" id="kpExpenses">—</div>
+        <div class="kpiCard__sub">₸</div>
+      </div>
+      <div class="kpiCard">
+        <div class="kpiCard__icon">📈</div>
+        <div class="kpiCard__label">Чистая прибыль</div>
+        <div class="kpiCard__value" id="kpNet">—</div>
+        <div class="kpiCard__sub">₸</div>
+      </div>
+      <div class="kpiCard">
+        <div class="kpiCard__icon">🧾</div>
+        <div class="kpiCard__label">Броней в периоде</div>
+        <div class="kpiCard__value" id="kpCount">—</div>
+        <div class="kpiCard__sub">шт.</div>
+      </div>
+      <div class="kpiCard">
+        <div class="kpiCard__icon">🎯</div>
+        <div class="kpiCard__label">Средний чек</div>
+        <div class="kpiCard__value" id="kpAvg">—</div>
+        <div class="kpiCard__sub">₸</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card" style="margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div>
+          <h3 style="margin:0 0 4px;">График доходов</h3>
+          <div class="small" id="chartRangeHint">Период: этот месяц</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btnChartDaily" class="secondary chartToggleBtn chartToggleBtn--active" style="width:auto;padding:8px 14px;font-size:13px;">По дням</button>
+          <button id="btnChartMonthly" class="secondary chartToggleBtn" style="width:auto;padding:8px 14px;font-size:13px;">По месяцам</button>
+        </div>
+      </div>
+
+      <div style="position:relative;">
+        <canvas id="analyticsChart" style="width:100%;height:280px;border:1px solid #e5e7eb;border-radius:12px;"></canvas>
+        <div id="chartEmpty" class="emptyState" style="display:none;">
+          <div class="emptyState__icon">📊</div>
+          <div class="emptyState__title">Нет данных</div>
+          <div class="emptyState__sub">Выберите другой период или добавьте брони</div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;">
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
+          <div style="width:12px;height:12px;border-radius:3px;background:rgba(14,124,102,.75);"></div>
+          <span>Выручка</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
+          <div style="width:12px;height:12px;border-radius:3px;background:rgba(220,104,3,.65);"></div>
+          <span>Расходы</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
+          <div style="width:12px;height:12px;border-radius:3px;background:rgba(37,99,235,.65);"></div>
+          <span>Чистая прибыль (только по месяцам)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status breakdown + Export -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;" class="statusExportGrid">
+
+      <div class="card">
+        <h3 style="margin:0 0 12px;">Статусы броней</h3>
+        <div id="statusBreakdown">
+          <div class="emptyState" style="padding:20px 0;">
+            <div class="kpiSpin" style="margin:0 auto;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 6px;">Экспорт данных</h3>
+        <div class="small" style="margin-bottom:14px;">Скачать таблицы в формате Excel (.xlsx)</div>
+        <div style="display:grid;gap:8px;">
+          <button id="btnExportAnalytics" style="text-align:left;padding:12px 14px;border-radius:12px;">
+            📊 Аналитика за период — Excel
+          </button>
+          <button id="btnExportBookings" class="secondary" style="text-align:left;padding:12px 14px;border-radius:12px;">
+            🧾 Все брони — Excel
+          </button>
+          <button id="btnExportGuests" class="secondary" style="text-align:left;padding:12px 14px;border-radius:12px;">
+            👤 Все гости — Excel
+          </button>
+          <button id="btnExportExpenses" class="secondary" style="text-align:left;padding:12px 14px;border-radius:12px;">
+            🧯 Все расходы — Excel
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="height:32px;"></div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

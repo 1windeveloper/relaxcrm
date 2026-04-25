@@ -29,6 +29,7 @@
       <nav class="navActions">
   <a class="navItem" href="/bookings.html">Брони</a>
   <a class="navItem" href="/calendar.html">Календарь</a>
+  <a class="navItem" href="/analytics.html">Аналитика</a>
   <a class="navItem" href="/finance.html">Доходы</a>
   <a class="navItem" href="/expenses.html">Расходы</a>
   <a class="navItem" href="/guests.html">Гости</a>
@@ -69,21 +70,62 @@
 
     <!-- 📋 Список расходов -->
     <div class="card">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-        <h2 style="margin:0;">Список расходов</h2>
-        <button id="btnReloadExp" class="secondary" style="max-width:220px;">
-          Обновить
-        </button>
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div>
+          <h2 style="margin:0;">Список расходов</h2>
+          <div class="small">Сортировка, удаление, редактирование, экспорт.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="btnExportExp" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">📥 Excel</button>
+          <button id="btnReloadExp" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">Обновить</button>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:1;min-width:140px;">
+          <label style="margin-bottom:4px;">Период с</label>
+          <input id="expFilterFrom" type="date" />
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <label style="margin-bottom:4px;">Период по</label>
+          <input id="expFilterTo" type="date" />
+        </div>
+        <div style="min-width:80px;">
+          <span class="pillTiny" style="margin-top:8px;display:inline-flex;">Всего: <span id="expFound" style="margin-left:4px;">0</span></span>
+        </div>
       </div>
 
       <div class="hr"></div>
-
-      <!-- список -->
-      <div class="list" id="expList"></div>
+      <div id="expList"></div>
     </div>
 
   </div>
 
   <script src="/app.js"></script>
+
+  <!-- Edit Expense Modal -->
+  <div id="editExpenseModal" class="modal hidden">
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header">
+        <b>Редактировать расход</b>
+        <button id="eeClose" class="secondary" style="width:auto;">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Дата</label>
+        <input id="ee_date" type="date" />
+        <label>Категория</label>
+        <input id="ee_cat" placeholder="Продукты, уборка, ремонт..." />
+        <label>Сумма (₸)</label>
+        <input id="ee_amount" type="number" min="0" value="0" />
+        <label>Комментарий</label>
+        <input id="ee_note" placeholder="Необязательно" />
+        <div class="hint" id="eeMsg"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+          <button id="btnSaveExpense" style="width:auto;">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
