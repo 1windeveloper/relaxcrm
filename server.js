@@ -1079,7 +1079,6 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="bookings_${new Date().toISOString().slice(0,10)}.xlsx"`);
     await wb.xlsx.write(res);
-    res.end();
   } catch (err) {
     console.error("❌ Excel bookings error:", err);
     res.status(500).send("Export error");
@@ -1114,7 +1113,6 @@ app.get("/api/export/guests.xlsx", async (req, res) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="guests_${new Date().toISOString().slice(0,10)}.xlsx"`);
     await wb.xlsx.write(res);
-    res.end();
   } catch (err) {
     console.error("❌ Excel guests error:", err);
     res.status(500).send("Export error");
@@ -1163,7 +1161,6 @@ app.get("/api/export/expenses.xlsx", async (req, res) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="expenses_${new Date().toISOString().slice(0,10)}.xlsx"`);
     await wb.xlsx.write(res);
-    res.end();
   } catch (err) {
     console.error("❌ Excel expenses error:", err);
     res.status(500).send("Export error");
@@ -1265,7 +1262,6 @@ app.get("/api/export/analytics.xlsx", async (req, res) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="analytics_${year}.xlsx"`);
     await wb.xlsx.write(res);
-    res.end();
   } catch (err) {
     console.error("❌ Excel analytics error:", err);
     res.status(500).send("Export error");
@@ -1273,13 +1269,36 @@ app.get("/api/export/analytics.xlsx", async (req, res) => {
 });
 
 // ------------------------
+// Health check (Railway uses this to verify the app is alive)
+// ------------------------
+app.get("/health", (req, res) => res.json({ ok: true }));
+
+// ------------------------
 // Start (важно: initDb ДО listen)
 // ------------------------
 const PORT = Number(process.env.PORT || 3000);
 
+// Catch uncaught exceptions so Railway logs show the real error
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught exception:", err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("❌ Unhandled rejection:", reason);
+  process.exit(1);
+});
+
 (async () => {
-  await initDb();
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Relax Borovoe CRM running: http://localhost:${PORT}`);
-  });
+  try {
+    await initDb();
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`✅ Relax Borovoe CRM running on port ${PORT}`);
+    }).on("error", (err) => {
+      console.error("❌ Failed to bind port:", err);
+      process.exit(1);
+    });
+  } catch (err) {
+    console.error("❌ Startup failed:", err);
+    process.exit(1);
+  }
 })();
