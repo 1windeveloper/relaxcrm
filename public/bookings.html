@@ -23,7 +23,7 @@
       </a>
 
       <nav class="navActions">
-        <a class="navItem" href="/bookings.html">Брони</a>
+        <a class="navItem active" href="/bookings.html">Брони</a>
         <a class="navItem" href="/calendar.html">Календарь</a>
         <a class="navItem" href="/finance.html">Финансы</a>
         <a class="navItem" href="/guests.html">Гости</a>
@@ -33,15 +33,15 @@
     </div>
   </div>
 
-  <div class="container">
+  <div class="container crm-page">
 
     <!-- ===== BOOKING WIZARD ===== -->
-    <div class="card" id="bookingWizard" style="margin-bottom:12px;">
+    <div class="card" id="bookingWizard">
 
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+      <div class="sec-hd" style="margin-bottom:16px;">
         <div>
-          <h2 style="margin:0;">Новая бронь</h2>
-          <div class="small">Быстрое оформление за 4 шага</div>
+          <div class="sec-hd__h">Новая бронь</div>
+          <div class="sec-hd__s">Быстрое оформление за 4 шага</div>
         </div>
         <div class="wizSteps" id="wizSteps">
           <div class="wizStep wizStep--active" data-wstep="1">
@@ -206,23 +206,23 @@
 
     <!-- ===== BOOKING LIST ===== -->
     <div class="card">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
-        <h2 style="margin:0;">Список броней</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button id="btnExportBookings" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">📥 Excel</button>
-          <button id="btnReload" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">Обновить</button>
+      <div class="sec-hd">
+        <div>
+          <div class="sec-hd__h">Список броней</div>
+        </div>
+        <div class="sec-hd__actions">
+          <button id="btnExportBookings" class="crm-btn">📥 Excel</button>
+          <button id="btnReload" class="crm-btn">Обновить</button>
         </div>
       </div>
 
-      <div style="height:10px"></div>
-
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:1;min-width:200px;">
-          <label style="margin-bottom:4px;">Поиск по имени или телефону</label>
+      <div class="crm-filter">
+        <div class="crm-filter__f">
+          <label class="crm-filter__lbl">Поиск по имени или телефону</label>
           <input id="filter" placeholder="Введите имя или телефон..." />
         </div>
-        <div style="min-width:180px;">
-          <label style="margin-bottom:4px;">Фильтр по статусу</label>
+        <div class="crm-filter__f crm-filter__f--sm">
+          <label class="crm-filter__lbl">Статус</label>
           <select id="bookingStatusFilter">
             <option value="">Все статусы</option>
             <option value="REQUEST">Запрос</option>
@@ -307,8 +307,8 @@
         <textarea id="edit_notes" rows="3"></textarea>
         <div class="hint" id="editMsg"></div>
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
-          <button id="btnCancelBooking" class="secondary danger" style="width:auto;">Отменить бронь</button>
-          <button id="btnSaveEdit" style="width:auto;">Сохранить</button>
+          <button id="btnCancelBooking" class="crm-btn crm-btn--danger">Отменить бронь</button>
+          <button id="btnSaveEdit" class="crm-btn crm-btn--primary">Сохранить</button>
         </div>
       </div>
     </div>

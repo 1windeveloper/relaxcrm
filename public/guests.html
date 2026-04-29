@@ -26,20 +26,20 @@
         <a class="navItem" href="/bookings.html">Брони</a>
         <a class="navItem" href="/calendar.html">Календарь</a>
         <a class="navItem" href="/finance.html">Финансы</a>
-        <a class="navItem" href="/guests.html">Гости</a>
+        <a class="navItem active" href="/guests.html">Гости</a>
         <a class="navItem" href="/analytics.html">Аналитика</a>
         <button id="logoutBtn" class="navLogout">Выйти🔒</button>
       </nav>
     </div>
   </div>
 
-  <div class="container">
+  <div class="container crm-page">
 
     <div class="card">
-      <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+      <div class="sec-hd">
         <div>
-          <h2 style="margin:0;">Добавить гостя</h2>
-          <div class="small">Гость появится в системе и будет доступен при создании брони.</div>
+          <div class="sec-hd__h">Добавить гостя</div>
+          <div class="sec-hd__s">Гость появится в системе и будет доступен при создании брони.</div>
         </div>
       </div>
 
@@ -67,29 +67,29 @@
       </div>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px;">
-        <button id="btnAddGuest" style="max-width:260px;">Добавить гостя</button>
+        <button id="btnAddGuest" class="crm-btn crm-btn--primary" style="min-width:180px;">Добавить гостя</button>
         <div class="hint" id="guestMsg"></div>
       </div>
     </div>
 
-    <div style="height:14px;"></div>
-
     <div class="card">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+      <div class="sec-hd">
         <div>
-          <h2 style="margin:0;">Все гости</h2>
-          <div class="small">Поиск, история, редактирование, экспорт.</div>
+          <div class="sec-hd__h">Все гости</div>
+          <div class="sec-hd__s">Поиск, история, редактирование, экспорт.</div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button id="btnExportGuests" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">📥 Excel</button>
-          <button id="btnReloadGuests" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">Обновить</button>
+        <div class="sec-hd__actions">
+          <button id="btnExportGuests" class="crm-btn">📥 Excel</button>
+          <button id="btnReloadGuests" class="crm-btn">Обновить</button>
         </div>
       </div>
 
-      <div class="hr"></div>
-
-      <label style="margin-top:0;">Поиск</label>
-      <input id="guestSearch" placeholder="ФИО / телефон / Instagram" />
+      <div class="crm-filter">
+        <div class="crm-filter__f">
+          <label class="crm-filter__lbl">Поиск</label>
+          <input id="guestSearch" placeholder="ФИО / телефон / Instagram" />
+        </div>
+      </div>
 
       <div class="searchMeta">
         <div class="left">
@@ -160,7 +160,7 @@
         <textarea id="eg_note" rows="3" placeholder="Любые заметки о госте..."></textarea>
         <div class="hint" id="egMsg"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
-          <button id="btnSaveGuest" style="width:auto;">Сохранить</button>
+          <button id="btnSaveGuest" class="crm-btn crm-btn--primary">Сохранить</button>
         </div>
       </div>
     </div>

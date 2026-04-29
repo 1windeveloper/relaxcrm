@@ -24,7 +24,7 @@
       <nav class="navActions">
         <a class="navItem" href="/bookings.html">Брони</a>
         <a class="navItem" href="/calendar.html">Календарь</a>
-        <a class="navItem" href="/finance.html">Финансы</a>
+        <a class="navItem active" href="/finance.html">Финансы</a>
         <a class="navItem" href="/guests.html">Гости</a>
         <a class="navItem" href="/analytics.html">Аналитика</a>
         <button id="logoutBtn" class="navLogout">Выйти🔒</button>
@@ -32,11 +32,13 @@
     </div>
   </div>
 
-  <div class="container" style="padding-top:14px;">
+  <div class="container crm-page">
 
-    <div style="margin-bottom:14px;">
-      <h1 style="margin:0 0 4px;font-size:26px;">Финансы</h1>
-      <div class="small">Выручка, расходы, чистая прибыль и экспорт</div>
+    <div class="pg-head">
+      <div>
+        <h1 class="pg-head__title">Финансы</h1>
+        <div class="pg-head__sub">Выручка, расходы, чистая прибыль и экспорт</div>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -68,16 +70,27 @@
           <label for="allTime" style="margin:0; cursor:pointer; font-weight:500;">За всё время (без выбора месяца)</label>
         </div>
 
-        <button id="btnLoadStats" style="width:100%; max-width:none;">Показать отчёт</button>
+        <button id="btnLoadStats" style="width:100%;max-width:none;padding:12px;">Показать отчёт</button>
         <div id="statsMsg" class="hint" style="margin-top:8px;"></div>
       </div>
 
       <div class="card" style="margin-top:14px;">
-        <div style="margin-top:4px;line-height:1.9;">
-          <div><b>Грязная прибыль (выручка):</b> <span id="rev">0</span> ₸</div>
-          <div><b>Расходы:</b> <span id="exp">0</span> ₸</div>
-          <hr style="opacity:.35;margin:10px 0;">
-          <div><b>Чистая прибыль:</b> <span id="net" class="pos">0</span> ₸</div>
+        <div class="fin-summary">
+          <div class="fin-summary__item">
+            <span class="fin-summary__label">Выручка</span>
+            <span class="fin-summary__value" id="rev">0</span>
+            <span class="small">₸ за период</span>
+          </div>
+          <div class="fin-summary__item">
+            <span class="fin-summary__label">Расходы</span>
+            <span class="fin-summary__value fin-summary__value--red" id="exp">0</span>
+            <span class="small">₸ за период</span>
+          </div>
+          <div class="fin-summary__item">
+            <span class="fin-summary__label">Чистая прибыль</span>
+            <span id="net" style="font-size:18px;font-weight:900;">0</span>
+            <span class="small">₸ итого</span>
+          </div>
         </div>
       </div>
 
@@ -105,8 +118,8 @@
         <canvas id="revChart" style="width:100%;height:280px;border:1px solid #e5e7eb;border-radius:12px;"></canvas>
 
         <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px;">
-          <button id="btnExportXlsx" class="secondary" style="width:auto;">📥 Экспорт Excel</button>
-          <button id="btnExport" class="secondary" style="width:auto;">Экспорт CSV</button>
+          <button id="btnExportXlsx" class="crm-btn">📥 Excel</button>
+          <button id="btnExport" class="crm-btn">CSV</button>
         </div>
       </div>
 
@@ -137,21 +150,21 @@
         <input id="exp_note" placeholder="Например: купили уголь" />
 
         <div style="height:12px"></div>
-        <button id="btnAddExpense" style="max-width:220px;">Сохранить расход</button>
+        <button id="btnAddExpense" class="crm-btn crm-btn--primary" style="min-width:200px;">Сохранить расход</button>
         <div class="hint" id="expMsg"></div>
       </div>
 
       <div style="height:14px"></div>
 
       <div class="card">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div class="sec-hd">
           <div>
-            <h3 style="margin:0;">Список расходов</h3>
-            <div class="small">Сортировка, редактирование, удаление, экспорт</div>
+            <div class="sec-hd__h" style="font-size:16px;">Список расходов</div>
+            <div class="sec-hd__s">Сортировка, редактирование, удаление, экспорт</div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button id="btnExportExp" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">📥 Excel</button>
-            <button id="btnReloadExp" class="secondary" style="width:auto;padding:8px 14px;font-size:13px;">Обновить</button>
+          <div class="sec-hd__actions">
+            <button id="btnExportExp" class="crm-btn">📥 Excel</button>
+            <button id="btnReloadExp" class="crm-btn">Обновить</button>
           </div>
         </div>
 
@@ -233,7 +246,7 @@
         <input id="ee_note" placeholder="Необязательно" />
         <div class="hint" id="eeMsg"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
-          <button id="btnSaveExpense" style="width:auto;">Сохранить</button>
+          <button id="btnSaveExpense" class="crm-btn crm-btn--primary">Сохранить</button>
         </div>
       </div>
     </div>
