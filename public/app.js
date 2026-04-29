@@ -1461,13 +1461,13 @@ async function initAnalyticsPage() {
     anYearEl.value = String(curYear);
   }
 
-  // Set default month preset dates
-  const _today = new Date();
+  // Set default "month" preset dates
+  const _now = new Date();
   const _pad = n => String(n).padStart(2, "0");
   const _df = $("anDateFrom");
   const _dt = $("anDateTo");
-  if (_df && !_df.value) _df.value = `${_today.getFullYear()}-${_pad(_today.getMonth()+1)}-01`;
-  if (_dt && !_dt.value) _dt.value = `${_today.getFullYear()}-${_pad(_today.getMonth()+1)}-${_pad(_today.getDate())}`;
+  if (_df && !_df.value) _df.value = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-01`;
+  if (_dt && !_dt.value) _dt.value = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
 
   function fmt(v) { return Number(v || 0).toLocaleString("ru-RU"); }
 
@@ -1514,15 +1514,19 @@ async function initAnalyticsPage() {
       // just reveal the fields, don't change values
     }
 
-    // Mark active preset button
-    document.querySelectorAll(".anPresetBtn").forEach(b => b.classList.remove("anPresetBtn--active", "active"));
-    const activeBtn = document.querySelector(`.anPresetBtn[data-preset="${preset}"]`);
-    if (activeBtn) activeBtn.classList.add("anPresetBtn--active");
+    // Show/hide custom date range
+    const customRange = $("anCustomRange");
+    if (customRange) customRange.style.display = preset === "custom" ? "flex" : "none";
 
-    load();
+    // Mark active pill
+    document.querySelectorAll(".an-pill").forEach(b => b.classList.remove("an-pill--active"));
+    const activeBtn = document.querySelector(`.an-pill[data-preset="${preset}"]`);
+    if (activeBtn) activeBtn.classList.add("an-pill--active");
+
+    if (preset !== "custom") load();
   }
 
-  document.querySelectorAll(".anPresetBtn").forEach(btn => {
+  document.querySelectorAll(".an-pill").forEach(btn => {
     btn.addEventListener("click", () => setPreset(btn.dataset.preset));
   });
 
@@ -1580,9 +1584,9 @@ async function initAnalyticsPage() {
       const exp = Number(r.expenses || 0);
       const net = Number(r.net || 0);
       totalRev += rev; totalExp += exp; totalNet += net;
-      const netCls = net >= 0 ? "anYearTable__pos" : "anYearTable__neg";
+      const netCls = net >= 0 ? "an-ytable__pos" : "an-ytable__neg";
       const isEmpty = rev === 0 && exp === 0;
-      return `<tr${isEmpty ? ' style="opacity:.45;"' : ''}>
+      return `<tr class="${isEmpty ? 'an-ytable__empty-row' : ''}">
         <td>${monthNames[Number(r.month)] || r.month}</td>
         <td>${rev > 0 ? fmt(rev) : '—'}</td>
         <td>${exp > 0 ? fmt(exp) : '—'}</td>
@@ -1590,14 +1594,14 @@ async function initAnalyticsPage() {
       </tr>`;
     }).join("");
 
-    const netTotCls = totalNet >= 0 ? "anYearTable__pos" : "anYearTable__neg";
-    el.innerHTML = `<div class="anYearTable__wrap">
-      <table class="anYearTable">
+    const netTotCls = totalNet >= 0 ? "an-ytable__pos" : "an-ytable__neg";
+    el.innerHTML = `<div class="an-ytable-wrap">
+      <table class="an-ytable">
         <thead>
           <tr>
             <th>Месяц</th>
-            <th style="text-align:right;">Выручка (₸)</th>
-            <th style="text-align:right;">Расходы (₸)</th>
+            <th>Выручка (₸)</th>
+            <th>Расходы (₸)</th>
             <th>Прибыль (₸)</th>
           </tr>
         </thead>
@@ -1658,7 +1662,7 @@ async function initAnalyticsPage() {
       if (kpNet) {
         const net = Number(kpi.net_profit || 0);
         kpNet.textContent = fmt(net);
-        kpNet.className = "anKpiCard__value" + (net < 0 ? " neg" : "");
+        kpNet.className = "an-kpi-card__value" + (net < 0 ? " neg" : "");
       }
 
       renderChart(data);
@@ -1666,12 +1670,11 @@ async function initAnalyticsPage() {
       renderYearlyTable(data.chart.monthly, $("anYear")?.value);
     } catch (e) {
       showToast("Ошибка загрузки аналитики: " + (e?.message || "нет данных"), "error");
-      // Clear spinners — never leave them spinning forever
-      const z0 = "0 ₸", z = "0";
-      if (kqToday) kqToday.textContent = z0;
-      if (kqWeek)  kqWeek.textContent  = z0;
-      if (kqMonth) kqMonth.textContent = z0;
-      if (kqAll)   kqAll.textContent   = z0;
+      const z = "—";
+      if (kqToday)    kqToday.textContent    = z;
+      if (kqWeek)     kqWeek.textContent     = z;
+      if (kqMonth)    kqMonth.textContent    = z;
+      if (kqAll)      kqAll.textContent      = z;
       if (kpRevenue)  kpRevenue.textContent  = z;
       if (kpExpenses) kpExpenses.textContent = z;
       if (kpNet)      kpNet.textContent      = z;
@@ -1685,14 +1688,14 @@ async function initAnalyticsPage() {
   // Chart toggle
   $("btnChartDaily")?.addEventListener("click", () => {
     chartMode = "daily";
-    $("btnChartDaily")?.classList.add("anToggleBtn--active");
-    $("btnChartMonthly")?.classList.remove("anToggleBtn--active");
+    $("btnChartDaily")?.classList.add("an-toggle--active");
+    $("btnChartMonthly")?.classList.remove("an-toggle--active");
     if (lastData) renderChart(lastData);
   });
   $("btnChartMonthly")?.addEventListener("click", () => {
     chartMode = "monthly";
-    $("btnChartMonthly")?.classList.add("anToggleBtn--active");
-    $("btnChartDaily")?.classList.remove("anToggleBtn--active");
+    $("btnChartMonthly")?.classList.add("an-toggle--active");
+    $("btnChartDaily")?.classList.remove("an-toggle--active");
     if (lastData) renderChart(lastData);
   });
 
@@ -1701,7 +1704,9 @@ async function initAnalyticsPage() {
     const df = $("anDateFrom"); if (df) df.value = "";
     const dt = $("anDateTo");   if (dt) dt.value = "";
     const st = $("anStatus");   if (st) st.value = "";
-    load();
+    document.querySelectorAll(".an-pill").forEach(b => b.classList.remove("an-pill--active"));
+    const m = document.querySelector('.an-pill[data-preset="month"]');
+    if (m) { m.classList.add("an-pill--active"); setPreset("month"); } else load();
   });
 
   // Exports
@@ -1742,7 +1747,7 @@ async function initAnalyticsPage() {
     resizeTimer = setTimeout(() => { if (lastData) renderChart(lastData); }, 150);
   });
 
-  // "Месяц" is already marked active via HTML class; nothing extra needed
+  // "Месяц" is pre-marked active in HTML; custom range hidden by default — nothing extra needed
 
   await load();
 }
