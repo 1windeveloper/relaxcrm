@@ -1044,14 +1044,31 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
     wb.creator = "Relax Borovoe CRM";
     const ws = wb.addWorksheet("Брони");
 
+    // Set column widths and headers FIRST (before any rows)
+    ws.columns = [
+      { width: 8 },  // ID
+      { width: 25 }, // Гость
+      { width: 16 }, // Телефон
+      { width: 18 }, // Instagram
+      { width: 12 }, // Заезд
+      { width: 12 }, // Выезд
+      { width: 10 }, // Гостей
+      { width: 14 }, // Сумма
+      { width: 16 }, // Предоплата
+      { width: 14 }, // Остаток
+      { width: 14 }, // Оплата
+      { width: 14 }, // Статус
+      { width: 14 }, // Источник
+      { width: 30 }, // Заметки
+    ];
+
     // Add title and export info
     ws.mergeCells("A1:M1");
     const titleRow = ws.getRow(1);
     titleRow.values = ["Экспорт броней — Relax Borovoe CRM"];
-    titleRow.font = { bold: true, size: 14 };
+    titleRow.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
     titleRow.alignment = { horizontal: "left" };
     titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C66" } };
-    titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
 
     ws.getRow(2).values = [`Выгружено: ${new Date().toLocaleString("ru-RU")}`];
     ws.getRow(2).font = { italic: true, size: 10 };
@@ -1070,29 +1087,12 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
     ws.getRow(5).font = { bold: true, color: { argb: "FFFFFFFF" } };
     ws.getRow(5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C66" } };
 
-    // Set column widths
-    ws.columns = [
-      { width: 8 },  // ID
-      { width: 25 }, // Гость
-      { width: 16 }, // Телефон
-      { width: 18 }, // Instagram
-      { width: 12 }, // Заезд
-      { width: 12 }, // Выезд
-      { width: 10 }, // Гостей
-      { width: 14 }, // Сумма
-      { width: 16 }, // Предоплата
-      { width: 14 }, // Остаток
-      { width: 14 }, // Оплата
-      { width: 14 }, // Статус
-      { width: 14 }, // Источник
-      { width: 30 }, // Заметки
-    ];
-
     const payL = { UNPAID: "Не оплачено", PARTIAL: "Предоплата", PAID: "Оплачено" };
     const stL = { REQUEST: "Запрос", CONFIRMED: "Подтверждено", COMPLETED: "Завершено", CANCELLED: "Отменено" };
 
     let totalSum = 0, totalPre = 0, totalDue = 0;
     let activeCount = 0;
+    let dataRowCount = 0;
 
     for (const r of rows) {
       const total = Number(r.price_total || 0);
@@ -1116,21 +1116,23 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
         total,
         prepay,
         remaining,
-        payL[r.payment_status] || r.payment_status,
-        stL[r.booking_status] || r.booking_status,
+        payL[r.payment_status] || r.payment_status || "",
+        stL[r.booking_status] || r.booking_status || "",
         r.source || "",
         r.notes || ""
       ]);
+
+      dataRowCount++;
 
       // Color cancelled rows differently
       if(r.booking_status === "CANCELLED") {
         dataRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFCFCF" } };
       }
 
-      // Format currency columns
-      dataRow.getCell(8).numFmt = '# ##0 "₸"';
-      dataRow.getCell(9).numFmt = '# ##0 "₸"';
-      dataRow.getCell(10).numFmt = '# ##0 "₸"';
+      // Format currency columns (columns 8, 9, 10)
+      dataRow.getCell(8).numFmt = '#,##0';
+      dataRow.getCell(9).numFmt = '#,##0';
+      dataRow.getCell(10).numFmt = '#,##0';
     }
 
     // Add summary row
@@ -1144,23 +1146,24 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
       ]);
       summaryRow.font = { bold: true, size: 11 };
       summaryRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE7F6F2" } };
-      summaryRow.getCell(8).numFmt = '# ##0 "₸"';
-      summaryRow.getCell(9).numFmt = '# ##0 "₸"';
-      summaryRow.getCell(10).numFmt = '# ##0 "₸"';
+      summaryRow.getCell(8).numFmt = '#,##0';
+      summaryRow.getCell(9).numFmt = '#,##0';
+      summaryRow.getCell(10).numFmt = '#,##0';
     }
 
-    // Freeze top rows
+    // Freeze top rows (rows 1-5)
     ws.views = [{ state: "frozen", xSplit: 0, ySplit: 5 }];
 
-    // Add filters
+    // Add autoFilter (only if data exists)
     if(rows.length > 0) {
       ws.autoFilter.from = "A5";
-      ws.autoFilter.to = `M${5 + rows.length}`;
+      ws.autoFilter.to = `M${5 + dataRowCount}`;
     }
 
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="bookings_${new Date().toISOString().slice(0,10)}.xlsx"`);
     await wb.xlsx.write(res);
+    res.end();
   } catch (err) {
     console.error("❌ Excel bookings error:", err);
     res.status(500).send("Export error");
@@ -1195,6 +1198,7 @@ app.get("/api/export/guests.xlsx", async (req, res) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="guests_${new Date().toISOString().slice(0,10)}.xlsx"`);
     await wb.xlsx.write(res);
+    res.end();
   } catch (err) {
     console.error("❌ Excel guests error:", err);
     res.status(500).send("Export error");
@@ -1227,6 +1231,15 @@ app.get("/api/export/expenses.xlsx", async (req, res) => {
     wb.creator = "Relax Borovoe CRM";
     const ws = wb.addWorksheet("Расходы");
 
+    // Set column widths FIRST
+    ws.columns = [
+      { width: 8 },   // ID
+      { width: 14 },  // Дата
+      { width: 25 },  // Категория
+      { width: 16 },  // Сумма
+      { width: 35 },  // Комментарий
+    ];
+
     // Add title and export info
     ws.mergeCells("A1:E1");
     const titleRow = ws.getRow(1);
@@ -1248,16 +1261,8 @@ app.get("/api/export/expenses.xlsx", async (req, res) => {
     ws.getRow(5).font = { bold: true, color: { argb: "FFFFFFFF" } };
     ws.getRow(5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC6803" } };
 
-    // Set column widths
-    ws.columns = [
-      { width: 8 },   // ID
-      { width: 14 },  // Дата
-      { width: 25 },  // Категория
-      { width: 16 },  // Сумма
-      { width: 35 },  // Комментарий
-    ];
-
     let totalAmount = 0;
+    let dataRowCount = 0;
 
     for (const r of rows) {
       const amount = Number(r.amount || 0);
@@ -1271,8 +1276,10 @@ app.get("/api/export/expenses.xlsx", async (req, res) => {
         r.note || ""
       ]);
 
-      // Format currency column
-      dataRow.getCell(4).numFmt = '# ##0 "₸"';
+      dataRowCount++;
+
+      // Format currency column (column 4)
+      dataRow.getCell(4).numFmt = '#,##0';
     }
 
     // Add summary row
@@ -1283,21 +1290,22 @@ app.get("/api/export/expenses.xlsx", async (req, res) => {
       ]);
       summaryRow.font = { bold: true, size: 11 };
       summaryRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
-      summaryRow.getCell(4).numFmt = '# ##0 "₸"';
+      summaryRow.getCell(4).numFmt = '#,##0';
     }
 
-    // Freeze top rows
+    // Freeze top rows (rows 1-5)
     ws.views = [{ state: "frozen", xSplit: 0, ySplit: 5 }];
 
-    // Add filters
+    // Add autoFilter (only if data exists)
     if(rows.length > 0) {
       ws.autoFilter.from = "A5";
-      ws.autoFilter.to = `E${5 + rows.length}`;
+      ws.autoFilter.to = `E${5 + dataRowCount}`;
     }
 
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="expenses_${new Date().toISOString().slice(0,10)}.xlsx"`);
     await wb.xlsx.write(res);
+    res.end();
   } catch (err) {
     console.error("❌ Excel expenses error:", err);
     res.status(500).send("Export error");
@@ -1399,6 +1407,7 @@ app.get("/api/export/analytics.xlsx", async (req, res) => {
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="analytics_${year}.xlsx"`);
     await wb.xlsx.write(res);
+    res.end();
   } catch (err) {
     console.error("❌ Excel analytics error:", err);
     res.status(500).send("Export error");
