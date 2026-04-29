@@ -1043,37 +1043,119 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
     const wb = new ExcelJS.Workbook();
     wb.creator = "Relax Borovoe CRM";
     const ws = wb.addWorksheet("Брони");
-    ws.columns = [
-      { header: "ID", key: "id", width: 8 },
-      { header: "Гость", key: "full_name", width: 28 },
-      { header: "Телефон", key: "phone", width: 18 },
-      { header: "Instagram", key: "instagram", width: 18 },
-      { header: "Заезд", key: "check_in", width: 14 },
-      { header: "Выезд", key: "check_out", width: 14 },
-      { header: "Гостей", key: "guests_count", width: 10 },
-      { header: "Сумма (₸)", key: "price_total", width: 16 },
-      { header: "Предоплата (₸)", key: "prepayment", width: 18 },
-      { header: "Статус оплаты", key: "payment_status", width: 18 },
-      { header: "Статус брони", key: "booking_status", width: 18 },
-      { header: "Источник", key: "source", width: 18 },
-      { header: "Заметки", key: "notes", width: 30 },
+
+    // Add title and export info
+    ws.mergeCells("A1:M1");
+    const titleRow = ws.getRow(1);
+    titleRow.values = ["Экспорт броней — Relax Borovoe CRM"];
+    titleRow.font = { bold: true, size: 14 };
+    titleRow.alignment = { horizontal: "left" };
+    titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C66" } };
+    titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+
+    ws.getRow(2).values = [`Выгружено: ${new Date().toLocaleString("ru-RU")}`];
+    ws.getRow(2).font = { italic: true, size: 10 };
+
+    if(df || dt) {
+      const periodStr = `Период: ${df || "..."} — ${dt || "..."}`;
+      ws.getRow(3).values = [periodStr];
+      ws.getRow(3).font = { italic: true, size: 10 };
+    }
+
+    ws.getRow(5).values = [
+      "ID", "Гость", "Телефон", "Instagram",
+      "Заезд", "Выезд", "Гостей", "Сумма (₸)", "Предоплата (₸)",
+      "Остаток (₸)", "Оплата", "Статус", "Источник", "Заметки"
     ];
-    ws.getRow(1).font = { bold: true };
-    ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE7F6F2" } };
+    ws.getRow(5).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    ws.getRow(5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C66" } };
+
+    // Set column widths
+    ws.columns = [
+      { width: 8 },  // ID
+      { width: 25 }, // Гость
+      { width: 16 }, // Телефон
+      { width: 18 }, // Instagram
+      { width: 12 }, // Заезд
+      { width: 12 }, // Выезд
+      { width: 10 }, // Гостей
+      { width: 14 }, // Сумма
+      { width: 16 }, // Предоплата
+      { width: 14 }, // Остаток
+      { width: 14 }, // Оплата
+      { width: 14 }, // Статус
+      { width: 14 }, // Источник
+      { width: 30 }, // Заметки
+    ];
 
     const payL = { UNPAID: "Не оплачено", PARTIAL: "Предоплата", PAID: "Оплачено" };
     const stL = { REQUEST: "Запрос", CONFIRMED: "Подтверждено", COMPLETED: "Завершено", CANCELLED: "Отменено" };
 
+    let totalSum = 0, totalPre = 0, totalDue = 0;
+    let activeCount = 0;
+
     for (const r of rows) {
-      ws.addRow({
-        id: r.id, full_name: r.full_name || "", phone: r.phone || "",
-        instagram: r.instagram || "", check_in: r.check_in || "", check_out: r.check_out || "",
-        guests_count: Number(r.guests_count || 1), price_total: Number(r.price_total || 0),
-        prepayment: Number(r.prepayment || 0),
-        payment_status: payL[r.payment_status] || r.payment_status,
-        booking_status: stL[r.booking_status] || r.booking_status,
-        source: r.source || "", notes: r.notes || "",
-      });
+      const total = Number(r.price_total || 0);
+      const prepay = Number(r.prepayment || 0);
+      const remaining = total - prepay;
+
+      totalSum += total;
+      totalPre += prepay;
+      totalDue += remaining;
+
+      if(r.booking_status !== "CANCELLED") activeCount++;
+
+      const dataRow = ws.addRow([
+        r.id,
+        r.full_name || "",
+        r.phone || "",
+        r.instagram || "",
+        r.check_in || "",
+        r.check_out || "",
+        Number(r.guests_count || 1),
+        total,
+        prepay,
+        remaining,
+        payL[r.payment_status] || r.payment_status,
+        stL[r.booking_status] || r.booking_status,
+        r.source || "",
+        r.notes || ""
+      ]);
+
+      // Color cancelled rows differently
+      if(r.booking_status === "CANCELLED") {
+        dataRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFCFCF" } };
+      }
+
+      // Format currency columns
+      dataRow.getCell(8).numFmt = '# ##0 "₸"';
+      dataRow.getCell(9).numFmt = '# ##0 "₸"';
+      dataRow.getCell(10).numFmt = '# ##0 "₸"';
+    }
+
+    // Add summary row
+    if(rows.length > 0) {
+      ws.addRow([]); // Empty row
+      const summaryRow = ws.addRow([
+        "", "", "", "",
+        "ИТОГО:", `(${activeCount} броней)`, "",
+        totalSum, totalPre, totalDue,
+        "", "", "", ""
+      ]);
+      summaryRow.font = { bold: true, size: 11 };
+      summaryRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE7F6F2" } };
+      summaryRow.getCell(8).numFmt = '# ##0 "₸"';
+      summaryRow.getCell(9).numFmt = '# ##0 "₸"';
+      summaryRow.getCell(10).numFmt = '# ##0 "₸"';
+    }
+
+    // Freeze top rows
+    ws.views = [{ state: "frozen", xSplit: 0, ySplit: 5 }];
+
+    // Add filters
+    if(rows.length > 0) {
+      ws.autoFilter.from = "A5";
+      ws.autoFilter.to = `M${5 + rows.length}`;
     }
 
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -1144,18 +1226,73 @@ app.get("/api/export/expenses.xlsx", async (req, res) => {
     const wb = new ExcelJS.Workbook();
     wb.creator = "Relax Borovoe CRM";
     const ws = wb.addWorksheet("Расходы");
+
+    // Add title and export info
+    ws.mergeCells("A1:E1");
+    const titleRow = ws.getRow(1);
+    titleRow.values = ["Экспорт расходов — Relax Borovoe CRM"];
+    titleRow.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+    titleRow.alignment = { horizontal: "left" };
+    titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC6803" } };
+
+    ws.getRow(2).values = [`Выгружено: ${new Date().toLocaleString("ru-RU")}`];
+    ws.getRow(2).font = { italic: true, size: 10 };
+
+    if(df || dt) {
+      const periodStr = `Период: ${df || "..."} — ${dt || "..."}`;
+      ws.getRow(3).values = [periodStr];
+      ws.getRow(3).font = { italic: true, size: 10 };
+    }
+
+    ws.getRow(5).values = ["ID", "Дата", "Категория", "Сумма (₸)", "Комментарий"];
+    ws.getRow(5).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    ws.getRow(5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDC6803" } };
+
+    // Set column widths
     ws.columns = [
-      { header: "ID", key: "id", width: 8 },
-      { header: "Дата", key: "exp_date", width: 14 },
-      { header: "Категория", key: "category", width: 28 },
-      { header: "Сумма (₸)", key: "amount", width: 16 },
-      { header: "Комментарий", key: "note", width: 40 },
+      { width: 8 },   // ID
+      { width: 14 },  // Дата
+      { width: 25 },  // Категория
+      { width: 16 },  // Сумма
+      { width: 35 },  // Комментарий
     ];
-    ws.getRow(1).font = { bold: true };
-    ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
+
+    let totalAmount = 0;
 
     for (const r of rows) {
-      ws.addRow({ id: r.id, exp_date: r.exp_date || "", category: r.category || "", amount: Number(r.amount || 0), note: r.note || "" });
+      const amount = Number(r.amount || 0);
+      totalAmount += amount;
+
+      const dataRow = ws.addRow([
+        r.id,
+        r.exp_date || "",
+        r.category || "",
+        amount,
+        r.note || ""
+      ]);
+
+      // Format currency column
+      dataRow.getCell(4).numFmt = '# ##0 "₸"';
+    }
+
+    // Add summary row
+    if(rows.length > 0) {
+      ws.addRow([]); // Empty row
+      const summaryRow = ws.addRow([
+        "", "", "ИТОГО:", totalAmount, ""
+      ]);
+      summaryRow.font = { bold: true, size: 11 };
+      summaryRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } };
+      summaryRow.getCell(4).numFmt = '# ##0 "₸"';
+    }
+
+    // Freeze top rows
+    ws.views = [{ state: "frozen", xSplit: 0, ySplit: 5 }];
+
+    // Add filters
+    if(rows.length > 0) {
+      ws.autoFilter.from = "A5";
+      ws.autoFilter.to = `E${5 + rows.length}`;
     }
 
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

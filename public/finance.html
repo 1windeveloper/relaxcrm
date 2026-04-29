@@ -50,25 +50,25 @@
     <div id="tab-income" class="finTabContent">
 
       <div class="card">
-        <h3 style="margin:0 0 10px;">Период отчёта</h3>
+        <h3 style="margin:0 0 14px;">Период отчёта</h3>
 
-        <div class="formGrid">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:14px;">
           <div>
-            <div class="fieldLabel">Год</div>
+            <label style="margin-bottom:6px;">Год</label>
             <select id="yearPick"></select>
           </div>
           <div>
-            <div class="fieldLabel">Месяц</div>
+            <label style="margin-bottom:6px;">Месяц</label>
             <select id="monthPick"></select>
           </div>
         </div>
 
-        <div class="checkRow" style="margin-top:10px;">
-          <input id="allTime" type="checkbox" />
-          <label for="allTime">За всё время (без выбора месяца)</label>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+          <input id="allTime" type="checkbox" style="width:auto; cursor:pointer;" />
+          <label for="allTime" style="margin:0; cursor:pointer; font-weight:500;">За всё время (без выбора месяца)</label>
         </div>
 
-        <button id="btnLoadStats" style="margin-top:12px;max-width:200px;">Показать</button>
+        <button id="btnLoadStats" style="width:100%; max-width:none;">Показать отчёт</button>
         <div id="statsMsg" class="hint" style="margin-top:8px;"></div>
       </div>
 

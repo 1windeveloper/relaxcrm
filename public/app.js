@@ -699,54 +699,66 @@ async function initCalendarPage(){
     });
 
     let html = "";
-    allWeeks.forEach(week => {
+    allWeeks.forEach((week, weekIdx) => {
       const slotDates = week.map(d => d ? ymd(new Date(curYear, curMonth, d)) : null);
 
       html += `<div class="calWeek"><div class="calDayRow">`;
-      week.forEach((day, si) => {
+
+      // Build day cells with bookings INSIDE
+      week.forEach((day, dayIdx) => {
         if(!day){ html += `<div class="calDay calDay--empty"></div>`; return; }
-        const ds = slotDates[si];
+
+        const ds = slotDates[dayIdx];
         const isToday = ds === todayStr;
-        const occ = bookingsByDay(ds).length > 0;
-        html += `<div class="calDay${isToday?" today":""}${occ?" occupied":""}" data-date="${ds}"><div class="n">${day}</div></div>`;
-      });
-      html += `</div>`;
+        const dayBkgs = bookingsByDay(ds);
+        const occ = dayBkgs.length > 0;
 
-      const firstDate = slotDates.find(Boolean);
-      const lastDate  = [...slotDates].filter(Boolean).slice(-1)[0];
-      const weekBookings = lastDate ? visible.filter(b => {
-        const i = dateOnly(b.check_in), o = dateOnly(b.check_out);
-        return o > firstDate && i <= lastDate;
-      }) : [];
+        html += `<div class="calDay${isToday?" today":""}${occ?" occupied":""}" data-date="${ds}">`;
+        html += `<div class="n">${day}</div>`;
 
-      if(weekBookings.length){
-        html += `<div class="calRangeGrid">`;
-        weekBookings.forEach(b => {
-          const inStr = dateOnly(b.check_in), outStr = dateOnly(b.check_out);
-          const covered = slotDates.map((ds,i)=>({i,ds})).filter(({ds})=>ds&&ds>=inStr&&ds<outStr);
-          if(!covered.length) return;
-          const gcs = covered[0].i + 1, gce = covered[covered.length-1].i + 2;
-          const startsHere = covered[0].ds === inStr;
-          const endsHere   = addDaysCal(covered[covered.length-1].ds, 1) === outStr;
-          const st = String(b.booking_status||"");
-          let cls = "calRange";
-          if(st==="CONFIRMED")  cls+=" calRange--confirmed";
-          else if(st==="COMPLETED") cls+=" calRange--completed";
-          else if(st==="REQUEST")   cls+=" calRange--request";
-          else if(st==="CANCELLED") cls+=" calRange--cancelled";
-          if(startsHere && endsHere) cls+=" calRange--both";
-          else if(startsHere) cls+=" calRange--start";
-          else if(endsHere)   cls+=" calRange--end";
-          const name = (b.full_name||"").split(" ").slice(0,2).join(" ");
-          html += `<div class="${cls}" style="grid-column:${gcs}/${gce};" data-rdate="${covered[0].ds}">`;
-          if(startsHere) html+=`<span class="calRange__arrow">→</span>`;
-          html+=`<span class="calRange__name">${escapeHtml(name)}</span>`;
-          if(endsHere) html+=`<span class="calRange__arrow">←</span>`;
-          html+=`</div>`;
-        });
+        // Render bookings for this day inside the cell
+        if(dayBkgs.length){
+          dayBkgs.forEach((b, bkgIdx) => {
+            const inStr = dateOnly(b.check_in);
+            const outStr = dateOnly(b.check_out);
+            const isFirstDay = ds === inStr;
+            const isLastDay = addDaysCal(ds, 1) === outStr;
+            const st = String(b.booking_status || "");
+
+            let cls = "calBooking";
+            if(st === "CONFIRMED") cls += " calBooking--confirmed";
+            else if(st === "COMPLETED") cls += " calBooking--completed";
+            else if(st === "REQUEST") cls += " calBooking--request";
+            else if(st === "CANCELLED") cls += " calBooking--cancelled";
+
+            if(isFirstDay && isLastDay) cls += " calBooking--both";
+            else if(isFirstDay) cls += " calBooking--start";
+            else if(isLastDay) cls += " calBooking--end";
+            else cls += " calBooking--middle";
+
+            // For 1-day bookings show initials, for multi-day show first name
+            const fullName = b.full_name || "";
+            let displayName;
+            if(isFirstDay && isLastDay){
+              // 1-day booking: show initials
+              displayName = fullName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "?";
+            } else {
+              // Multi-day booking: show first name
+              displayName = fullName.split(" ")[0] || "?";
+            }
+
+            html += `<div class="${cls}" data-bid="${b.id}" data-rdate="${ds}">`;
+            if(isFirstDay) html += `<span class="calBooking__arrow">→</span>`;
+            html += `<span class="calBooking__name">${escapeHtml(displayName)}</span>`;
+            if(isLastDay) html += `<span class="calBooking__arrow">←</span>`;
+            html += `</div>`;
+          });
+        }
+
         html += `</div>`;
-      }
-      html += `</div>`;
+      });
+
+      html += `</div></div>`;
     });
 
     grid.innerHTML = html;
@@ -754,7 +766,7 @@ async function initCalendarPage(){
     grid.querySelectorAll(".calDay[data-date]").forEach(cell=>{
       cell.addEventListener("click", ()=> openDayModal(cell.getAttribute("data-date")));
     });
-    grid.querySelectorAll(".calRange[data-rdate]").forEach(el=>{
+    grid.querySelectorAll(".calBooking[data-rdate]").forEach(el=>{
       el.addEventListener("click", e=>{ e.stopPropagation(); openDayModal(el.getAttribute("data-rdate")); });
     });
 

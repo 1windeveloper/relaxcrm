@@ -1550,39 +1550,85 @@ select:focus {
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
-.calRangeGrid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: 22px;
-  grid-auto-flow: row dense;
-  gap: 2px 0;
-  padding: 2px 0 2px;
-  min-height: 4px;
+/* Calendar day cell — flexbox layout to support stacked bookings */
+.calDay {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 60px;
+  padding: 6px 8px;
+  position: relative;
 }
-.calRange {
-  height: 22px;
-  font-size: 11px;
-  font-weight: 700;
+
+/* Day number */
+.calDay .n {
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* Booking bars inside day cells */
+.calBooking {
+  height: 18px;
+  font-size: 10px;
+  font-weight: 600;
   padding: 0 5px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   overflow: hidden;
   white-space: nowrap;
-  transition: filter .1s;
+  transition: filter .1s, transform .1s;
   border-radius: 0;
+  flex-shrink: 0;
 }
-.calRange:hover { filter: brightness(.9); }
-.calRange--start  { border-radius: 12px 0 0 12px; padding-left: 8px; }
-.calRange--end    { border-radius: 0 12px 12px 0; padding-right: 8px; }
-.calRange--both   { border-radius: 12px; }
-.calRange--confirmed { background: rgba(34,197,94,.28); color: #14532d; }
-.calRange--completed { background: rgba(100,116,139,.22); color: #1e293b; }
-.calRange--request   { background: rgba(245,158,11,.28); color: #78350f; }
-.calRange--cancelled { background: rgba(239,68,68,.15); color: #7f1d1d; opacity: .7; }
-.calRange__name  { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.calRange__arrow { font-size: 9px; opacity: .65; flex-shrink: 0; }
+
+.calBooking:hover {
+  filter: brightness(.9);
+  transform: scale(1.02);
+}
+
+.calBooking--start { border-radius: 6px 0 0 6px; padding-left: 6px; }
+.calBooking--end { border-radius: 0 6px 6px 0; padding-right: 6px; }
+.calBooking--both { border-radius: 6px; }
+.calBooking--middle { border-radius: 0; }
+
+.calBooking--confirmed {
+  background: rgba(34,197,94,.35);
+  color: #14532d;
+  border: 1px solid rgba(34,197,94,.6);
+}
+
+.calBooking--completed {
+  background: rgba(100,116,139,.25);
+  color: #1e293b;
+  border: 1px solid rgba(100,116,139,.5);
+}
+
+.calBooking--request {
+  background: rgba(245,158,11,.35);
+  color: #78350f;
+  border: 1px solid rgba(245,158,11,.6);
+}
+
+.calBooking--cancelled {
+  background: rgba(239,68,68,.2);
+  color: #7f1d1d;
+  opacity: .6;
+  border: 1px solid rgba(239,68,68,.4);
+}
+
+.calBooking__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calBooking__arrow {
+  font-size: 8px;
+  opacity: .7;
+  flex-shrink: 0;
+}
 
 /* Calendar filter tabs */
 .calFilters {
@@ -1616,10 +1662,15 @@ select:focus {
   box-shadow: none;
 }
 
-/* Calendar day cell — lighter in new range-based layout */
+/* Calendar day cell — flexbox layout to support stacked bookings */
 .calDay {
-  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 60px;
   padding: 6px 8px;
+  position: relative;
 }
 .calDay--empty { background: transparent; border-color: transparent; cursor: default; }
 .calDay--empty:hover { background: transparent; border-color: transparent; }
+
