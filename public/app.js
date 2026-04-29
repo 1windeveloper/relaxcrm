@@ -1461,6 +1461,14 @@ async function initAnalyticsPage() {
     anYearEl.value = String(curYear);
   }
 
+  // Set default month preset dates
+  const _today = new Date();
+  const _pad = n => String(n).padStart(2, "0");
+  const _df = $("anDateFrom");
+  const _dt = $("anDateTo");
+  if (_df && !_df.value) _df.value = `${_today.getFullYear()}-${_pad(_today.getMonth()+1)}-01`;
+  if (_dt && !_dt.value) _dt.value = `${_today.getFullYear()}-${_pad(_today.getMonth()+1)}-${_pad(_today.getDate())}`;
+
   function fmt(v) { return Number(v || 0).toLocaleString("ru-RU"); }
 
   function buildQuery() {
@@ -1507,14 +1515,14 @@ async function initAnalyticsPage() {
     }
 
     // Mark active preset button
-    document.querySelectorAll(".presetBtn").forEach(b => b.classList.remove("chartToggleBtn--active"));
-    const activeBtn = document.querySelector(`.presetBtn[data-preset="${preset}"]`);
-    if (activeBtn) activeBtn.classList.add("chartToggleBtn--active");
+    document.querySelectorAll(".anPresetBtn").forEach(b => b.classList.remove("anPresetBtn--active", "active"));
+    const activeBtn = document.querySelector(`.anPresetBtn[data-preset="${preset}"]`);
+    if (activeBtn) activeBtn.classList.add("anPresetBtn--active");
 
     load();
   }
 
-  document.querySelectorAll(".presetBtn").forEach(btn => {
+  document.querySelectorAll(".anPresetBtn").forEach(btn => {
     btn.addEventListener("click", () => setPreset(btn.dataset.preset));
   });
 
@@ -1558,10 +1566,13 @@ async function initAnalyticsPage() {
     const yearLabel = $("yearlyTableYear");
     if (yearLabel) yearLabel.textContent = year || $("anYear")?.value || new Date().getFullYear();
     if (!el) return;
-    if (!monthly || !monthly.length) {
+
+    const hasData = monthly && monthly.some(r => Number(r.revenue) > 0 || Number(r.expenses) > 0);
+    if (!monthly || !monthly.length || !hasData) {
       el.innerHTML = `<div class="emptyState" style="padding:20px 0;"><div class="emptyState__sub">Нет данных за выбранный год</div></div>`;
       return;
     }
+
     const monthNames = ["", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
     let totalRev = 0, totalExp = 0, totalNet = 0;
     const rows = monthly.map(r => {
@@ -1569,41 +1580,38 @@ async function initAnalyticsPage() {
       const exp = Number(r.expenses || 0);
       const net = Number(r.net || 0);
       totalRev += rev; totalExp += exp; totalNet += net;
-      const netClass = net >= 0 ? "color:#067647" : "color:#b42318";
-      return `<tr>
-        <td style="font-weight:600;">${monthNames[Number(r.month)] || r.month}</td>
-        <td style="text-align:right;">${fmt(rev)}</td>
-        <td style="text-align:right;">${fmt(exp)}</td>
-        <td style="text-align:right;${netClass};font-weight:700;">${fmt(net)}</td>
+      const netCls = net >= 0 ? "anYearTable__pos" : "anYearTable__neg";
+      const isEmpty = rev === 0 && exp === 0;
+      return `<tr${isEmpty ? ' style="opacity:.45;"' : ''}>
+        <td>${monthNames[Number(r.month)] || r.month}</td>
+        <td>${rev > 0 ? fmt(rev) : '—'}</td>
+        <td>${exp > 0 ? fmt(exp) : '—'}</td>
+        <td class="${netCls}" style="font-weight:700;">${isEmpty ? '—' : fmt(net)}</td>
       </tr>`;
     }).join("");
-    const netTotClass = totalNet >= 0 ? "color:#067647" : "color:#b42318";
-    el.innerHTML = `<div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+
+    const netTotCls = totalNet >= 0 ? "anYearTable__pos" : "anYearTable__neg";
+    el.innerHTML = `<div class="anYearTable__wrap">
+      <table class="anYearTable">
         <thead>
-          <tr style="background:var(--brand);color:#fff;">
-            <th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0;">Месяц</th>
-            <th style="padding:10px 12px;text-align:right;">Выручка (₸)</th>
-            <th style="padding:10px 12px;text-align:right;">Расходы (₸)</th>
-            <th style="padding:10px 12px;text-align:right;border-radius:0 8px 0 0;">Прибыль (₸)</th>
+          <tr>
+            <th>Месяц</th>
+            <th style="text-align:right;">Выручка (₸)</th>
+            <th style="text-align:right;">Расходы (₸)</th>
+            <th>Прибыль (₸)</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
         <tfoot>
-          <tr style="background:#f0fdf4;font-weight:800;font-size:15px;">
-            <td style="padding:10px 12px;border-top:2px solid #d1fae5;">ИТОГО</td>
-            <td style="padding:10px 12px;text-align:right;border-top:2px solid #d1fae5;">${fmt(totalRev)}</td>
-            <td style="padding:10px 12px;text-align:right;border-top:2px solid #d1fae5;">${fmt(totalExp)}</td>
-            <td style="padding:10px 12px;text-align:right;border-top:2px solid #d1fae5;${netTotClass};">${fmt(totalNet)}</td>
+          <tr>
+            <td>ИТОГО</td>
+            <td>${fmt(totalRev)}</td>
+            <td>${fmt(totalExp)}</td>
+            <td class="${netTotCls}">${fmt(totalNet)}</td>
           </tr>
         </tfoot>
       </table>
     </div>`;
-    // Alternate row colors
-    el.querySelectorAll("tbody tr").forEach((tr, i) => {
-      tr.style.background = i % 2 === 0 ? "#fff" : "#f9fafb";
-      tr.querySelectorAll("td").forEach(td => { td.style.padding = "9px 12px"; td.style.borderBottom = "1px solid #f0f0f0"; });
-    });
   }
 
   function renderStatusBreakdown(breakdown) {
@@ -1650,7 +1658,7 @@ async function initAnalyticsPage() {
       if (kpNet) {
         const net = Number(kpi.net_profit || 0);
         kpNet.textContent = fmt(net);
-        kpNet.className = "kpiCard__value " + (net >= 0 ? "kpiCard__value--green" : "kpiCard__value--red");
+        kpNet.className = "anKpiCard__value" + (net < 0 ? " neg" : "");
       }
 
       renderChart(data);
@@ -1677,14 +1685,14 @@ async function initAnalyticsPage() {
   // Chart toggle
   $("btnChartDaily")?.addEventListener("click", () => {
     chartMode = "daily";
-    $("btnChartDaily")?.classList.add("chartToggleBtn--active");
-    $("btnChartMonthly")?.classList.remove("chartToggleBtn--active");
+    $("btnChartDaily")?.classList.add("anToggleBtn--active");
+    $("btnChartMonthly")?.classList.remove("anToggleBtn--active");
     if (lastData) renderChart(lastData);
   });
   $("btnChartMonthly")?.addEventListener("click", () => {
     chartMode = "monthly";
-    $("btnChartMonthly")?.classList.add("chartToggleBtn--active");
-    $("btnChartDaily")?.classList.remove("chartToggleBtn--active");
+    $("btnChartMonthly")?.classList.add("anToggleBtn--active");
+    $("btnChartDaily")?.classList.remove("anToggleBtn--active");
     if (lastData) renderChart(lastData);
   });
 
@@ -1734,9 +1742,7 @@ async function initAnalyticsPage() {
     resizeTimer = setTimeout(() => { if (lastData) renderChart(lastData); }, 150);
   });
 
-  // Mark "Этот месяц" as the default active preset on initial load
-  const defaultPresetBtn = document.querySelector('.presetBtn[data-preset="month"]');
-  if (defaultPresetBtn) defaultPresetBtn.classList.add("chartToggleBtn--active");
+  // "Месяц" is already marked active via HTML class; nothing extra needed
 
   await load();
 }

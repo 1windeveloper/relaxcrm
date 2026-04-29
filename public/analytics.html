@@ -26,7 +26,7 @@
         <a class="navItem" href="/calendar.html">Календарь</a>
         <a class="navItem" href="/finance.html">Финансы</a>
         <a class="navItem" href="/guests.html">Гости</a>
-        <a class="navItem" href="/analytics.html">Аналитика</a>
+        <a class="navItem active" href="/analytics.html">Аналитика</a>
         <button id="logoutBtn" class="navLogout">Выйти🔒</button>
       </nav>
     </div>
@@ -34,65 +34,74 @@
 
   <div class="container" style="padding-top:14px;">
 
-    <!-- Page title -->
-    <div style="margin-bottom:14px;">
-      <h1 style="margin:0 0 4px;font-size:26px;">Аналитика доходов</h1>
-      <div class="small">Выручка, расходы, чистая прибыль, средний чек, графики</div>
-    </div>
-
-    <!-- Quick KPI (today / week / month / all-time — always live) -->
-    <div class="kpiGrid" id="kpiQuick">
-      <div class="kpiCard kpiCard--blue" id="kpiToday">
-        <div class="kpiCard__label">Сегодня</div>
-        <div class="kpiCard__value" id="kqToday"><span class="kpiSpin"></span></div>
-        <div class="kpiCard__sub">выручка</div>
-      </div>
-      <div class="kpiCard kpiCard--purple" id="kpiWeek">
-        <div class="kpiCard__label">Эта неделя</div>
-        <div class="kpiCard__value" id="kqWeek"><span class="kpiSpin"></span></div>
-        <div class="kpiCard__sub">выручка</div>
-      </div>
-      <div class="kpiCard kpiCard--green" id="kpiMonth">
-        <div class="kpiCard__label">Этот месяц</div>
-        <div class="kpiCard__value" id="kqMonth"><span class="kpiSpin"></span></div>
-        <div class="kpiCard__sub">выручка</div>
-      </div>
-      <div class="kpiCard kpiCard--orange" id="kpiAll">
-        <div class="kpiCard__label">За всё время</div>
-        <div class="kpiCard__value" id="kqAll"><span class="kpiSpin"></span></div>
-        <div class="kpiCard__sub">суммарная выручка</div>
+    <!-- Page header -->
+    <div class="anPageHeader">
+      <div>
+        <h1 style="margin:0 0 4px;font-size:26px;">Аналитика</h1>
+        <div class="small">Выручка, расходы, прибыль, графики и экспорт</div>
       </div>
     </div>
 
-    <!-- Period presets -->
-    <div class="card" style="margin-top:14px;padding:12px 14px;">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <span class="small" style="font-weight:600;color:var(--muted);margin-right:4px;">Период:</span>
-        <button class="secondary presetBtn" data-preset="today" style="width:auto;padding:7px 14px;font-size:13px;">Сегодня</button>
-        <button class="secondary presetBtn" data-preset="week" style="width:auto;padding:7px 14px;font-size:13px;">Эта неделя</button>
-        <button class="secondary presetBtn" data-preset="month" style="width:auto;padding:7px 14px;font-size:13px;">Этот месяц</button>
-        <button class="secondary presetBtn" data-preset="year" style="width:auto;padding:7px 14px;font-size:13px;">Этот год</button>
-        <button class="secondary presetBtn" data-preset="all" style="width:auto;padding:7px 14px;font-size:13px;">Всё время</button>
-        <button class="secondary presetBtn" data-preset="custom" style="width:auto;padding:7px 14px;font-size:13px;">Свой</button>
+    <!-- Live KPI strip (always current, not filtered) -->
+    <div class="anStatStrip">
+      <div class="anStat">
+        <div class="anStat__label">Сегодня</div>
+        <div class="anStat__value" id="kqToday"><span class="kpiSpin"></span></div>
+        <div class="anStat__sub">выручка ₸</div>
+      </div>
+      <div class="anStatDivider"></div>
+      <div class="anStat">
+        <div class="anStat__label">Эта неделя</div>
+        <div class="anStat__value" id="kqWeek"><span class="kpiSpin"></span></div>
+        <div class="anStat__sub">выручка ₸</div>
+      </div>
+      <div class="anStatDivider"></div>
+      <div class="anStat">
+        <div class="anStat__label">Этот месяц</div>
+        <div class="anStat__value" id="kqMonth"><span class="kpiSpin"></span></div>
+        <div class="anStat__sub">выручка ₸</div>
+      </div>
+      <div class="anStatDivider"></div>
+      <div class="anStat">
+        <div class="anStat__label">За всё время</div>
+        <div class="anStat__value" id="kqAll"><span class="kpiSpin"></span></div>
+        <div class="anStat__sub">суммарно ₸</div>
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="card" style="margin-top:10px;" id="filterCard">
-      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:1;min-width:140px;">
+    <!-- Unified filter card -->
+    <div class="card anFilterCard">
+
+      <!-- Preset buttons -->
+      <div class="anPresetBar">
+        <span class="anPresetBar__label">Быстрый выбор</span>
+        <div class="anPresetBtns">
+          <button class="anPresetBtn" data-preset="today">Сегодня</button>
+          <button class="anPresetBtn" data-preset="week">Неделя</button>
+          <button class="anPresetBtn anPresetBtn--active" data-preset="month">Месяц</button>
+          <button class="anPresetBtn" data-preset="year">Этот год</button>
+          <button class="anPresetBtn" data-preset="all">Всё время</button>
+          <button class="anPresetBtn" data-preset="custom">Свой период</button>
+        </div>
+      </div>
+
+      <div class="anFilterDivider"></div>
+
+      <!-- Manual filters -->
+      <div class="anFilterRow">
+        <div class="anFilterField">
           <label>Дата с</label>
           <input id="anDateFrom" type="date" />
         </div>
-        <div style="flex:1;min-width:140px;">
+        <div class="anFilterField">
           <label>Дата по</label>
           <input id="anDateTo" type="date" />
         </div>
-        <div style="flex:1;min-width:100px;">
+        <div class="anFilterField anFilterField--sm">
           <label>Год (по месяцам)</label>
           <select id="anYear"></select>
         </div>
-        <div style="flex:1;min-width:160px;">
+        <div class="anFilterField">
           <label>Статус брони</label>
           <select id="anStatus">
             <option value="">Все (кроме отменённых)</option>
@@ -102,63 +111,62 @@
             <option value="CANCELLED">Отменено</option>
           </select>
         </div>
-        <div>
-          <button id="btnApplyFilter" style="width:auto;padding:12px 20px;">Показать</button>
-        </div>
-        <div>
-          <button id="btnResetFilter" class="secondary" style="width:auto;padding:12px 20px;">Сброс</button>
+        <div class="anFilterActions">
+          <button id="btnApplyFilter" style="width:auto;padding:11px 22px;">Показать</button>
+          <button id="btnResetFilter" class="secondary" style="width:auto;padding:11px 18px;">Сброс</button>
         </div>
       </div>
+
     </div>
 
     <!-- Period KPI cards -->
-    <div class="kpiGrid kpiGrid--5" style="margin-top:14px;" id="kpiPeriod">
-      <div class="kpiCard">
-        <div class="kpiCard__icon">💰</div>
-        <div class="kpiCard__label">Выручка за период</div>
-        <div class="kpiCard__value" id="kpRevenue">—</div>
-        <div class="kpiCard__sub">₸</div>
+    <div class="anKpiGrid">
+      <div class="anKpiCard anKpiCard--brand">
+        <div class="anKpiCard__icon">💰</div>
+        <div class="anKpiCard__label">Выручка за период</div>
+        <div class="anKpiCard__value" id="kpRevenue">—</div>
+        <div class="anKpiCard__sub">тенге</div>
       </div>
-      <div class="kpiCard">
-        <div class="kpiCard__icon">🧯</div>
-        <div class="kpiCard__label">Расходы за период</div>
-        <div class="kpiCard__value kpiCard__value--red" id="kpExpenses">—</div>
-        <div class="kpiCard__sub">₸</div>
+      <div class="anKpiCard anKpiCard--red">
+        <div class="anKpiCard__icon">🧯</div>
+        <div class="anKpiCard__label">Расходы за период</div>
+        <div class="anKpiCard__value" id="kpExpenses">—</div>
+        <div class="anKpiCard__sub">тенге</div>
       </div>
-      <div class="kpiCard">
-        <div class="kpiCard__icon">📈</div>
-        <div class="kpiCard__label">Чистая прибыль</div>
-        <div class="kpiCard__value" id="kpNet">—</div>
-        <div class="kpiCard__sub">₸</div>
+      <div class="anKpiCard anKpiCard--net">
+        <div class="anKpiCard__icon">📈</div>
+        <div class="anKpiCard__label">Чистая прибыль</div>
+        <div class="anKpiCard__value" id="kpNet">—</div>
+        <div class="anKpiCard__sub">тенге</div>
       </div>
-      <div class="kpiCard">
-        <div class="kpiCard__icon">🧾</div>
-        <div class="kpiCard__label">Броней в периоде</div>
-        <div class="kpiCard__value" id="kpCount">—</div>
-        <div class="kpiCard__sub">шт.</div>
+      <div class="anKpiCard">
+        <div class="anKpiCard__icon">🧾</div>
+        <div class="anKpiCard__label">Броней</div>
+        <div class="anKpiCard__value" id="kpCount">—</div>
+        <div class="anKpiCard__sub">за период</div>
       </div>
-      <div class="kpiCard">
-        <div class="kpiCard__icon">🎯</div>
-        <div class="kpiCard__label">Средний чек</div>
-        <div class="kpiCard__value" id="kpAvg">—</div>
-        <div class="kpiCard__sub">₸</div>
+      <div class="anKpiCard">
+        <div class="anKpiCard__icon">🎯</div>
+        <div class="anKpiCard__label">Средний чек</div>
+        <div class="anKpiCard__value" id="kpAvg">—</div>
+        <div class="anKpiCard__sub">тенге</div>
       </div>
     </div>
 
-    <!-- Chart -->
+    <!-- Chart card -->
     <div class="card" style="margin-top:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+      <div class="anChartHeader">
         <div>
-          <h3 style="margin:0 0 4px;">График доходов</h3>
+          <div class="anChartTitle">График доходов</div>
           <div class="small" id="chartRangeHint">Период: этот месяц</div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button id="btnChartDaily" class="secondary chartToggleBtn chartToggleBtn--active" style="width:auto;padding:8px 14px;font-size:13px;">По дням</button>
-          <button id="btnChartMonthly" class="secondary chartToggleBtn" style="width:auto;padding:8px 14px;font-size:13px;">По месяцам</button>
+        <div class="anChartToggle">
+          <button id="btnChartDaily" class="anToggleBtn anToggleBtn--active">По дням</button>
+          <button id="btnChartMonthly" class="anToggleBtn">По месяцам</button>
         </div>
       </div>
 
-      <div style="position:relative;">
+      <div style="position:relative;margin-top:12px;">
         <canvas id="analyticsChart" style="width:100%;height:280px;border:1px solid #e5e7eb;border-radius:12px;"></canvas>
         <div id="chartEmpty" class="emptyState" style="display:none;">
           <div class="emptyState__icon">📊</div>
@@ -167,28 +175,18 @@
         </div>
       </div>
 
-      <!-- Legend -->
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;">
-        <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-          <div style="width:12px;height:12px;border-radius:3px;background:rgba(14,124,102,.75);"></div>
-          <span>Выручка</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-          <div style="width:12px;height:12px;border-radius:3px;background:rgba(220,104,3,.65);"></div>
-          <span>Расходы</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-          <div style="width:12px;height:12px;border-radius:3px;background:rgba(37,99,235,.65);"></div>
-          <span>Чистая прибыль (только по месяцам)</span>
-        </div>
+      <div class="anChartLegend">
+        <span class="anLegendItem"><span class="anLegendDot" style="background:rgba(14,124,102,.8);"></span>Выручка</span>
+        <span class="anLegendItem"><span class="anLegendDot" style="background:rgba(220,104,3,.75);"></span>Расходы</span>
+        <span class="anLegendItem"><span class="anLegendDot" style="background:rgba(37,99,235,.7);"></span>Прибыль (по месяцам)</span>
       </div>
     </div>
 
-    <!-- Status breakdown + Export -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;" class="statusExportGrid">
+    <!-- Status + Export (two columns) -->
+    <div class="anBottomGrid">
 
       <div class="card">
-        <h3 style="margin:0 0 12px;">Статусы броней</h3>
+        <div class="anSectionTitle">Статусы броней</div>
         <div id="statusBreakdown">
           <div class="emptyState" style="padding:20px 0;">
             <div class="kpiSpin" style="margin:0 auto;"></div>
@@ -197,29 +195,45 @@
       </div>
 
       <div class="card">
-        <h3 style="margin:0 0 6px;">Экспорт данных</h3>
-        <div class="small" style="margin-bottom:14px;">Скачать таблицы в формате Excel (.xlsx)</div>
-        <div style="display:grid;gap:8px;">
-          <button id="btnExportAnalytics" style="text-align:left;padding:12px 14px;border-radius:12px;">
-            📊 Аналитика за период — Excel
+        <div class="anSectionTitle">Экспорт данных</div>
+        <div class="small" style="margin-bottom:14px;color:var(--muted);">Скачать в формате Excel (.xlsx)</div>
+        <div class="anExportList">
+          <button id="btnExportAnalytics" class="anExportBtn anExportBtn--primary">
+            <span class="anExportBtn__icon">📊</span>
+            <div>
+              <div class="anExportBtn__title">Аналитика за период</div>
+              <div class="anExportBtn__sub">Excel (.xlsx)</div>
+            </div>
           </button>
-          <button id="btnExportBookings" class="secondary" style="text-align:left;padding:12px 14px;border-radius:12px;">
-            🧾 Все брони — Excel
+          <button id="btnExportBookings" class="anExportBtn">
+            <span class="anExportBtn__icon">🧾</span>
+            <div>
+              <div class="anExportBtn__title">Все брони</div>
+              <div class="anExportBtn__sub">Excel (.xlsx)</div>
+            </div>
           </button>
-          <button id="btnExportGuests" class="secondary" style="text-align:left;padding:12px 14px;border-radius:12px;">
-            👤 Все гости — Excel
+          <button id="btnExportGuests" class="anExportBtn">
+            <span class="anExportBtn__icon">👤</span>
+            <div>
+              <div class="anExportBtn__title">Все гости</div>
+              <div class="anExportBtn__sub">Excel (.xlsx)</div>
+            </div>
           </button>
-          <button id="btnExportExpenses" class="secondary" style="text-align:left;padding:12px 14px;border-radius:12px;">
-            🧯 Все расходы — Excel
+          <button id="btnExportExpenses" class="anExportBtn">
+            <span class="anExportBtn__icon">🧯</span>
+            <div>
+              <div class="anExportBtn__title">Все расходы</div>
+              <div class="anExportBtn__sub">Excel (.xlsx)</div>
+            </div>
           </button>
         </div>
       </div>
 
     </div>
 
-    <!-- Yearly monthly breakdown table -->
+    <!-- Yearly breakdown table -->
     <div class="card" style="margin-top:14px;">
-      <h3 style="margin:0 0 12px;">По месяцам — <span id="yearlyTableYear"></span></h3>
+      <div class="anSectionTitle">По месяцам — <span id="yearlyTableYear"></span></div>
       <div id="yearlyTable">
         <div class="emptyState" style="padding:24px 0;">
           <div class="kpiSpin" style="margin:0 auto;"></div>

@@ -593,7 +593,7 @@ app.get("/api/stats", async (req, res) => {
     const bSql = month
       ? `SELECT COALESCE(SUM(price_total),0) AS revenue
          FROM bookings
-         WHERE booking_status <> 'CANCELLED' AND TO_CHAR(check_in, 'YYYY-MM') = $1`
+         WHERE booking_status <> 'CANCELLED' AND TO_CHAR(check_in::date, 'YYYY-MM') = $1`
       : `SELECT COALESCE(SUM(price_total),0) AS revenue
          FROM bookings
          WHERE booking_status <> 'CANCELLED'`;
@@ -601,7 +601,7 @@ app.get("/api/stats", async (req, res) => {
     const eSql = month
       ? `SELECT COALESCE(SUM(amount),0) AS expenses
          FROM expenses
-         WHERE TO_CHAR(exp_date, 'YYYY-MM') = $1`
+         WHERE TO_CHAR(exp_date::date, 'YYYY-MM') = $1`
       : `SELECT COALESCE(SUM(amount),0) AS expenses
          FROM expenses`;
 
@@ -629,11 +629,11 @@ app.get("/api/revenue-by-month", async (req, res) => {
 
     const { rows } = await db.query(
       `
-      SELECT to_char(check_in, 'MM') AS m,
+      SELECT to_char(check_in::date, 'MM') AS m,
              SUM(price_total) AS revenue
       FROM bookings
       WHERE booking_status IN ('CONFIRMED','COMPLETED')
-        AND to_char(check_in, 'YYYY') = $1
+        AND to_char(check_in::date, 'YYYY') = $1
       GROUP BY m
       ORDER BY m
       `,
@@ -669,18 +669,18 @@ app.get("/api/profit-by-month", async (req, res) => {
     const { rows } = await db.query(
       `
       WITH rev AS (
-        SELECT to_char(check_in, 'MM') AS m,
+        SELECT to_char(check_in::date, 'MM') AS m,
                SUM(price_total) AS revenue
         FROM bookings
         WHERE booking_status IN ('CONFIRMED','COMPLETED')
-          AND to_char(check_in, 'YYYY') = $1
+          AND to_char(check_in::date, 'YYYY') = $1
         GROUP BY m
       ),
       exp AS (
-        SELECT to_char(exp_date, 'MM') AS m,
+        SELECT to_char(exp_date::date, 'MM') AS m,
                SUM(amount) AS expenses
         FROM expenses
-        WHERE to_char(exp_date, 'YYYY') = $1
+        WHERE to_char(exp_date::date, 'YYYY') = $1
         GROUP BY m
       )
       SELECT
@@ -725,7 +725,7 @@ app.get("/api/export/year.csv", async (req, res) => {
       SELECT COALESCE(SUM(price_total),0) AS revenue
       FROM bookings
       WHERE booking_status IN ('CONFIRMED','COMPLETED')
-        AND to_char(check_in, 'YYYY') = $1
+        AND to_char(check_in::date, 'YYYY') = $1
       `,
       [y]
     );
@@ -734,7 +734,7 @@ app.get("/api/export/year.csv", async (req, res) => {
       `
       SELECT COALESCE(SUM(amount),0) AS expenses
       FROM expenses
-      WHERE to_char(exp_date, 'YYYY') = $1
+      WHERE to_char(exp_date::date, 'YYYY') = $1
       `,
       [y]
     );
@@ -747,18 +747,18 @@ app.get("/api/export/year.csv", async (req, res) => {
     const byMonth = await db.query(
       `
       WITH rev AS (
-        SELECT to_char(check_in, 'MM') AS m,
+        SELECT to_char(check_in::date, 'MM') AS m,
                SUM(price_total) AS v
         FROM bookings
         WHERE booking_status IN ('CONFIRMED','COMPLETED')
-          AND to_char(check_in, 'YYYY') = $1
+          AND to_char(check_in::date, 'YYYY') = $1
         GROUP BY m
       ),
       exp AS (
-        SELECT to_char(exp_date, 'MM') AS m,
+        SELECT to_char(exp_date::date, 'MM') AS m,
                SUM(amount) AS v
         FROM expenses
-        WHERE to_char(exp_date, 'YYYY') = $1
+        WHERE to_char(exp_date::date, 'YYYY') = $1
         GROUP BY m
       )
       SELECT
@@ -893,12 +893,12 @@ app.get("/api/analytics", async (req, res) => {
     const year = yearRaw >= 2000 && yearRaw <= 2100 ? yearRaw : new Date().getFullYear();
     const { rows: mRows } = await db.query(
       `WITH rev AS (
-        SELECT to_char(check_in, 'MM') AS m, SUM(price_total) AS revenue
-        FROM bookings WHERE booking_status IN ('CONFIRMED','COMPLETED','REQUEST') AND to_char(check_in, 'YYYY')=$1
+        SELECT to_char(check_in::date, 'MM') AS m, SUM(price_total) AS revenue
+        FROM bookings WHERE booking_status IN ('CONFIRMED','COMPLETED','REQUEST') AND to_char(check_in::date, 'YYYY')=$1
         GROUP BY m
       ), exp AS (
-        SELECT to_char(exp_date, 'MM') AS m, SUM(amount) AS expenses
-        FROM expenses WHERE to_char(exp_date, 'YYYY')=$1 GROUP BY m
+        SELECT to_char(exp_date::date, 'MM') AS m, SUM(amount) AS expenses
+        FROM expenses WHERE to_char(exp_date::date, 'YYYY')=$1 GROUP BY m
       )
       SELECT to_char(gs.n,'FM00') AS month,
              COALESCE(rev.revenue,0) AS revenue, COALESCE(exp.expenses,0) AS expenses,
@@ -1356,11 +1356,11 @@ app.get("/api/export/analytics.xlsx", async (req, res) => {
       ),
       db.query(
         `WITH rev AS (
-          SELECT to_char(check_in, 'MM') AS m, SUM(price_total) AS revenue
-          FROM bookings WHERE booking_status IN ('CONFIRMED','COMPLETED','REQUEST') AND to_char(check_in, 'YYYY')=$1 GROUP BY m
+          SELECT to_char(check_in::date, 'MM') AS m, SUM(price_total) AS revenue
+          FROM bookings WHERE booking_status IN ('CONFIRMED','COMPLETED','REQUEST') AND to_char(check_in::date, 'YYYY')=$1 GROUP BY m
         ), exp AS (
-          SELECT to_char(exp_date, 'MM') AS m, SUM(amount) AS expenses
-          FROM expenses WHERE to_char(exp_date, 'YYYY')=$1 GROUP BY m
+          SELECT to_char(exp_date::date, 'MM') AS m, SUM(amount) AS expenses
+          FROM expenses WHERE to_char(exp_date::date, 'YYYY')=$1 GROUP BY m
         )
         SELECT to_char(gs.n,'FM00') AS month,
                COALESCE(rev.revenue,0) AS revenue, COALESCE(exp.expenses,0) AS expenses,
