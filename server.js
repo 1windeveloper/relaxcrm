@@ -1014,6 +1014,7 @@ app.put("/api/expenses/:id", async (req, res) => {
 // ========================
 app.get("/api/export/bookings.xlsx", async (req, res) => {
   try {
+    console.error("ALL BOOKINGS EXPORT STARTED");
     const ExcelJS = require("exceljs");
     const dfRaw = String(req.query.date_from || "").trim();
     const dtRaw = String(req.query.date_to || "").trim();
@@ -1035,35 +1036,34 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
       `SELECT b.id, g.full_name, g.phone, g.instagram,
               b.check_in, b.check_out, b.guests_count,
               b.price_total, b.prepayment, b.payment_status, b.booking_status, b.source, b.notes
-       FROM bookings b JOIN guests g ON g.id=b.guest_id
+       FROM bookings b LEFT JOIN guests g ON g.id=b.guest_id
        WHERE ${where} ORDER BY b.check_in DESC`,
       params
     );
+    console.error("Export query result:", rows?.length);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "Relax Borovoe CRM";
     const ws = wb.addWorksheet("Брони");
 
-    // Set column widths and headers FIRST (before any rows)
     ws.columns = [
-      { width: 8 },  // ID
-      { width: 25 }, // Гость
-      { width: 16 }, // Телефон
-      { width: 18 }, // Instagram
-      { width: 12 }, // Заезд
-      { width: 12 }, // Выезд
-      { width: 10 }, // Гостей
-      { width: 14 }, // Сумма
-      { width: 16 }, // Предоплата
-      { width: 14 }, // Остаток
-      { width: 14 }, // Оплата
-      { width: 14 }, // Статус
-      { width: 14 }, // Источник
-      { width: 30 }, // Заметки
+      { width: 8 },
+      { width: 25 },
+      { width: 16 },
+      { width: 18 },
+      { width: 12 },
+      { width: 12 },
+      { width: 10 },
+      { width: 14 },
+      { width: 16 },
+      { width: 14 },
+      { width: 14 },
+      { width: 14 },
+      { width: 14 },
+      { width: 30 },
     ];
 
-    // Add title and export info
-    ws.mergeCells("A1:M1");
+    ws.mergeCells("A1:N1");
     const titleRow = ws.getRow(1);
     titleRow.values = ["Экспорт броней — Relax Borovoe CRM"];
     titleRow.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
@@ -1073,9 +1073,8 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
     ws.getRow(2).values = [`Выгружено: ${new Date().toLocaleString("ru-RU")}`];
     ws.getRow(2).font = { italic: true, size: 10 };
 
-    if(df || dt) {
-      const periodStr = `Период: ${df || "..."} — ${dt || "..."}`;
-      ws.getRow(3).values = [periodStr];
+    if (df || dt) {
+      ws.getRow(3).values = [`Период: ${df || "..."} — ${dt || "..."}`];
       ws.getRow(3).font = { italic: true, size: 10 };
     }
 
@@ -1103,41 +1102,38 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
       totalPre += prepay;
       totalDue += remaining;
 
-      if(r.booking_status !== "CANCELLED") activeCount++;
+      if (r.booking_status !== "CANCELLED") activeCount++;
 
       const dataRow = ws.addRow([
-        r.id,
-        r.full_name || "",
-        r.phone || "",
-        r.instagram || "",
-        r.check_in || "",
-        r.check_out || "",
+        r.id ?? "",
+        r.full_name ?? "",
+        r.phone ?? "",
+        r.instagram ?? "",
+        r.check_in ?? "",
+        r.check_out ?? "",
         Number(r.guests_count || 1),
         total,
         prepay,
         remaining,
         payL[r.payment_status] || r.payment_status || "",
         stL[r.booking_status] || r.booking_status || "",
-        r.source || "",
-        r.notes || ""
+        r.source ?? "",
+        r.notes ?? ""
       ]);
 
       dataRowCount++;
 
-      // Color cancelled rows differently
-      if(r.booking_status === "CANCELLED") {
+      if (r.booking_status === "CANCELLED") {
         dataRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFCFCF" } };
       }
 
-      // Format currency columns (columns 8, 9, 10)
       dataRow.getCell(8).numFmt = '#,##0';
       dataRow.getCell(9).numFmt = '#,##0';
       dataRow.getCell(10).numFmt = '#,##0';
     }
 
-    // Add summary row
-    if(rows.length > 0) {
-      ws.addRow([]); // Empty row
+    if (rows.length > 0) {
+      ws.addRow([]);
       const summaryRow = ws.addRow([
         "", "", "", "",
         "ИТОГО:", `(${activeCount} броней)`, "",
@@ -1149,24 +1145,23 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
       summaryRow.getCell(8).numFmt = '#,##0';
       summaryRow.getCell(9).numFmt = '#,##0';
       summaryRow.getCell(10).numFmt = '#,##0';
+
+      // Fix: assign autoFilter as a string — ws.autoFilter is null by default in ExcelJS 4.x
+      ws.autoFilter = `A5:N${5 + dataRowCount}`;
     }
 
-    // Freeze top rows (rows 1-5)
     ws.views = [{ state: "frozen", xSplit: 0, ySplit: 5 }];
 
-    // Add autoFilter (only if data exists)
-    if(rows.length > 0) {
-      ws.autoFilter.from = "A5";
-      ws.autoFilter.to = `M${5 + dataRowCount}`;
-    }
-
+    // Use buffer approach to avoid stream-end conflicts with Express 5
+    const buffer = await wb.xlsx.writeBuffer();
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="bookings_${new Date().toISOString().slice(0,10)}.xlsx"`);
-    await wb.xlsx.write(res);
-    res.end();
+    res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Excel bookings error:", err);
-    res.status(500).send("Export error");
+    console.error("ALL BOOKINGS EXPORT ERROR:", err);
+    if (!res.headersSent) {
+      res.status(500).send("Export error");
+    }
   }
 });
 
