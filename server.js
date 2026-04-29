@@ -1426,6 +1426,479 @@ app.get("/api/export/analytics.xlsx", async (req, res) => {
   }
 });
 
+// ====================================================
+// ANALYTICS EXTENDED — /api/analytics/extended
+// Returns occupancy, payment breakdown, returning guests, prepayment
+// ====================================================
+app.get("/api/analytics/extended", async (req, res) => {
+  try {
+    const dfRaw = String(req.query.date_from || "").trim();
+    const dtRaw = String(req.query.date_to || "").trim();
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    const df = dateRe.test(dfRaw) ? dfRaw : null;
+    const dt = dateRe.test(dtRaw) ? dtRaw : null;
+
+    // Date range for queries
+    const today = new Date().toISOString().slice(0, 10);
+    const periodFrom = df || "2020-01-01";
+    const periodTo   = dt || today;
+
+    // Active statuses (non-cancelled) for revenue
+    const activeStatuses = ["CONFIRMED", "COMPLETED"];
+
+    // 1. Revenue / prepayment / remaining / booking counts for period
+    const { rows: kpiRows } = await db.query(
+      `SELECT
+        COALESCE(SUM(CASE WHEN booking_status IN ('CONFIRMED','COMPLETED') THEN price_total ELSE 0 END), 0) AS revenue,
+        COALESCE(SUM(CASE WHEN booking_status IN ('CONFIRMED','COMPLETED') THEN prepayment ELSE 0 END), 0) AS prepayment,
+        COALESCE(SUM(CASE WHEN booking_status IN ('CONFIRMED','COMPLETED') THEN price_total - prepayment ELSE 0 END), 0) AS remaining,
+        COUNT(*) FILTER (WHERE booking_status = 'CONFIRMED') AS confirmed_count,
+        COUNT(*) FILTER (WHERE booking_status = 'COMPLETED') AS completed_count,
+        COUNT(*) FILTER (WHERE booking_status = 'REQUEST')   AS request_count,
+        COUNT(*) FILTER (WHERE booking_status = 'CANCELLED') AS cancelled_count,
+        COUNT(*) FILTER (WHERE booking_status IN ('CONFIRMED','COMPLETED')) AS active_count,
+        COALESCE(AVG(CASE WHEN booking_status IN ('CONFIRMED','COMPLETED') THEN
+          (check_out::date - check_in::date) END), 0) AS avg_nights,
+        COUNT(DISTINCT guest_id) FILTER (WHERE booking_status IN ('CONFIRMED','COMPLETED','REQUEST')) AS unique_guests,
+        COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END), 0) AS fully_paid,
+        COALESCE(SUM(CASE WHEN payment_status = 'PARTIAL' THEN 1 ELSE 0 END), 0) AS partial_paid,
+        COALESCE(SUM(CASE WHEN payment_status = 'UNPAID' THEN 1 ELSE 0 END), 0) AS unpaid
+       FROM bookings
+       WHERE check_in >= $1 AND check_in <= $2`,
+      [periodFrom, periodTo]
+    );
+    const kpi = kpiRows[0] || {};
+
+    // 2. Returning guests (>1 active booking all-time, visible in period)
+    const { rows: retRows } = await db.query(
+      `SELECT COUNT(*) AS cnt FROM (
+        SELECT guest_id FROM bookings
+        WHERE booking_status IN ('CONFIRMED','COMPLETED')
+          AND check_in >= $1 AND check_in <= $2
+          AND guest_id IN (
+            SELECT guest_id FROM bookings
+            WHERE booking_status IN ('CONFIRMED','COMPLETED')
+            GROUP BY guest_id HAVING COUNT(*) > 1
+          )
+        GROUP BY guest_id
+       ) sub`,
+      [periodFrom, periodTo]
+    );
+    const returningGuests = Number(retRows[0]?.cnt || 0);
+
+    // 3. Occupancy: sum of booked nights within period / total days in period
+    const { rows: occRows } = await db.query(
+      `SELECT COALESCE(SUM(
+          LEAST(check_out::date, $2::date + 1) - GREATEST(check_in::date, $1::date)
+        ), 0) AS occupied_nights
+       FROM bookings
+       WHERE booking_status IN ('CONFIRMED','COMPLETED')
+         AND check_out > $1 AND check_in < $2::date + 1`,
+      [periodFrom, periodTo]
+    );
+    const occupiedNights = Math.max(0, Number(occRows[0]?.occupied_nights || 0));
+    const periodDays = Math.max(1,
+      Math.round((new Date(periodTo) - new Date(periodFrom)) / 86400000) + 1
+    );
+    const occupancyRate = Math.min(100, Math.round((occupiedNights / periodDays) * 100));
+
+    // 4. Best and worst months (by revenue, for selected year or all time)
+    const yearRaw = parseInt(req.query.year || new Date().getFullYear(), 10);
+    const year = yearRaw >= 2000 && yearRaw <= 2100 ? yearRaw : new Date().getFullYear();
+    const { rows: monthlyRows } = await db.query(
+      `WITH rev AS (
+        SELECT to_char(check_in::date,'MM') AS m, SUM(price_total) AS revenue, COUNT(*) AS cnt
+        FROM bookings WHERE booking_status IN ('CONFIRMED','COMPLETED')
+          AND to_char(check_in::date,'YYYY') = $1 GROUP BY m
+      ), exp AS (
+        SELECT to_char(exp_date::date,'MM') AS m, SUM(amount) AS expenses
+        FROM expenses WHERE to_char(exp_date::date,'YYYY') = $1 GROUP BY m
+      )
+      SELECT to_char(gs.n,'FM00') AS month,
+             COALESCE(rev.revenue,0) AS revenue, COALESCE(exp.expenses,0) AS expenses,
+             COALESCE(rev.cnt,0) AS bookings_count,
+             (COALESCE(rev.revenue,0)-COALESCE(exp.expenses,0)) AS net
+      FROM generate_series(1,12) AS gs(n)
+      LEFT JOIN rev ON rev.m=to_char(gs.n,'FM00')
+      LEFT JOIN exp ON exp.m=to_char(gs.n,'FM00')
+      ORDER BY gs.n`,
+      [String(year)]
+    );
+
+    res.json({
+      revenue: Number(kpi.revenue || 0),
+      prepayment: Number(kpi.prepayment || 0),
+      remaining: Number(kpi.remaining || 0),
+      confirmed_count: Number(kpi.confirmed_count || 0),
+      completed_count: Number(kpi.completed_count || 0),
+      request_count: Number(kpi.request_count || 0),
+      cancelled_count: Number(kpi.cancelled_count || 0),
+      active_count: Number(kpi.active_count || 0),
+      avg_nights: Math.round(Number(kpi.avg_nights || 0) * 10) / 10,
+      unique_guests: Number(kpi.unique_guests || 0),
+      returning_guests: returningGuests,
+      fully_paid: Number(kpi.fully_paid || 0),
+      partial_paid: Number(kpi.partial_paid || 0),
+      unpaid: Number(kpi.unpaid || 0),
+      occupied_nights: occupiedNights,
+      period_days: periodDays,
+      occupancy_rate: occupancyRate,
+      monthly: monthlyRows.map(r => ({
+        month: r.month,
+        revenue: Number(r.revenue || 0),
+        expenses: Number(r.expenses || 0),
+        net: Number(r.net || 0),
+        bookings_count: Number(r.bookings_count || 0),
+      })),
+    });
+  } catch (err) {
+    console.error("❌ /api/analytics/extended error:", err);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
+// ====================================================
+// ANALYTICS GUESTS — /api/analytics/guests
+// Top guests by spend and bookings
+// ====================================================
+app.get("/api/analytics/guests", async (req, res) => {
+  try {
+    const dfRaw = String(req.query.date_from || "").trim();
+    const dtRaw = String(req.query.date_to || "").trim();
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    const df = dateRe.test(dfRaw) ? dfRaw : null;
+    const dt = dateRe.test(dtRaw) ? dtRaw : null;
+    const today = new Date().toISOString().slice(0, 10);
+    const pFrom = df || "2020-01-01";
+    const pTo   = dt || today;
+
+    // Top guests: all bookings in period, aggregate by guest
+    const { rows } = await db.query(
+      `SELECT
+        g.id,
+        g.full_name,
+        g.phone,
+        COUNT(b.id) AS bookings_count,
+        COALESCE(SUM(CASE WHEN b.booking_status IN ('CONFIRMED','COMPLETED') THEN b.price_total ELSE 0 END), 0) AS total_spent,
+        MAX(b.check_in) AS last_visit,
+        COUNT(b.id) FILTER (WHERE b.booking_status = 'CANCELLED') AS cancelled_count,
+        COUNT(b.id) FILTER (WHERE b.booking_status IN ('CONFIRMED','COMPLETED')) AS active_bookings
+       FROM guests g
+       LEFT JOIN bookings b ON b.guest_id = g.id AND b.check_in >= $1 AND b.check_in <= $2
+       GROUP BY g.id, g.full_name, g.phone
+       HAVING COUNT(b.id) > 0
+       ORDER BY total_spent DESC, bookings_count DESC
+       LIMIT 50`,
+      [pFrom, pTo]
+    );
+
+    // All-time booking counts (to detect returning guests)
+    const { rows: allTimeRows } = await db.query(
+      `SELECT guest_id, COUNT(*) AS total_all_time
+       FROM bookings WHERE booking_status IN ('CONFIRMED','COMPLETED')
+       GROUP BY guest_id`
+    );
+    const allTimeMap = {};
+    for (const r of allTimeRows) allTimeMap[r.guest_id] = Number(r.total_all_time);
+
+    const guests = rows.map(r => ({
+      id: r.id,
+      full_name: r.full_name,
+      phone: r.phone || "",
+      bookings_count: Number(r.bookings_count || 0),
+      total_spent: Number(r.total_spent || 0),
+      last_visit: r.last_visit ? String(r.last_visit).slice(0, 10) : null,
+      cancelled_count: Number(r.cancelled_count || 0),
+      active_bookings: Number(r.active_bookings || 0),
+      is_returning: (allTimeMap[r.id] || 0) > 1,
+    }));
+
+    res.json({ guests });
+  } catch (err) {
+    console.error("❌ /api/analytics/guests error:", err);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
+// ====================================================
+// ANALYTICS OCCUPANCY — /api/analytics/occupancy
+// Monthly occupancy for selected year
+// ====================================================
+app.get("/api/analytics/occupancy", async (req, res) => {
+  try {
+    const yearRaw = parseInt(req.query.year || new Date().getFullYear(), 10);
+    const year = yearRaw >= 2000 && yearRaw <= 2100 ? yearRaw : new Date().getFullYear();
+    const y = String(year);
+
+    const { rows } = await db.query(
+      `SELECT
+        m,
+        days_in_month,
+        COALESCE(occ, 0) AS occupied_nights
+       FROM (
+         SELECT gs.n AS m,
+                EXTRACT(DAY FROM (date_trunc('month', make_date($1::int, gs.n::int, 1)) + INTERVAL '1 month - 1 day'))::int AS days_in_month
+         FROM generate_series(1, 12) AS gs(n)
+       ) months
+       LEFT JOIN (
+         SELECT
+           EXTRACT(MONTH FROM gs.d)::int AS m,
+           COUNT(*) AS occ
+         FROM generate_series(
+           make_date($1::int, 1, 1),
+           make_date($1::int, 12, 31),
+           '1 day'::interval
+         ) AS gs(d)
+         JOIN bookings b
+           ON b.booking_status IN ('CONFIRMED','COMPLETED')
+           AND b.check_in::date <= gs.d
+           AND b.check_out::date > gs.d
+           AND EXTRACT(YEAR FROM gs.d) = $1::int
+         GROUP BY EXTRACT(MONTH FROM gs.d)::int
+       ) occ_data USING (m)
+       ORDER BY m`,
+      [year]
+    );
+
+    const monthly = rows.map(r => ({
+      month: String(r.m).padStart(2, "0"),
+      days_in_month: Number(r.days_in_month),
+      occupied_nights: Number(r.occupied_nights || 0),
+      occupancy_pct: Math.min(100, Math.round((Number(r.occupied_nights || 0) / Number(r.days_in_month)) * 100)),
+    }));
+
+    res.json({ year, monthly });
+  } catch (err) {
+    console.error("❌ /api/analytics/occupancy error:", err);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
+// ====================================================
+// ANALYTICS EXPENSES BREAKDOWN — /api/analytics/expenses-breakdown
+// Expenses by category and by month
+// ====================================================
+app.get("/api/analytics/expenses-breakdown", async (req, res) => {
+  try {
+    const dfRaw = String(req.query.date_from || "").trim();
+    const dtRaw = String(req.query.date_to || "").trim();
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    const df = dateRe.test(dfRaw) ? dfRaw : null;
+    const dt = dateRe.test(dtRaw) ? dtRaw : null;
+    const today = new Date().toISOString().slice(0, 10);
+    const pFrom = df || "2020-01-01";
+    const pTo   = dt || today;
+
+    const [catRows, monthRows, biggestRow] = await Promise.all([
+      db.query(
+        `SELECT category, SUM(amount) AS total, COUNT(*) AS cnt
+         FROM expenses WHERE exp_date >= $1 AND exp_date <= $2
+         GROUP BY category ORDER BY total DESC LIMIT 20`,
+        [pFrom, pTo]
+      ),
+      db.query(
+        `SELECT to_char(exp_date::date,'YYYY-MM') AS ym, SUM(amount) AS total, COUNT(*) AS cnt
+         FROM expenses WHERE exp_date >= $1 AND exp_date <= $2
+         GROUP BY ym ORDER BY ym`,
+        [pFrom, pTo]
+      ),
+      db.query(
+        `SELECT exp_date, category, amount, note
+         FROM expenses WHERE exp_date >= $1 AND exp_date <= $2
+         ORDER BY amount DESC LIMIT 1`,
+        [pFrom, pTo]
+      ),
+    ]);
+
+    res.json({
+      by_category: catRows.rows.map(r => ({
+        category: r.category || "Прочее",
+        total: Number(r.total || 0),
+        count: Number(r.cnt || 0),
+      })),
+      by_month: monthRows.rows.map(r => ({
+        ym: r.ym,
+        total: Number(r.total || 0),
+        count: Number(r.cnt || 0),
+      })),
+      biggest: biggestRow.rows[0] ? {
+        date: String(biggestRow.rows[0].exp_date).slice(0, 10),
+        category: biggestRow.rows[0].category,
+        amount: Number(biggestRow.rows[0].amount),
+        note: biggestRow.rows[0].note || "",
+      } : null,
+    });
+  } catch (err) {
+    console.error("❌ /api/analytics/expenses-breakdown error:", err);
+    res.status(500).json({ error: "db error" });
+  }
+});
+
+// ====================================================
+// ANALYTICS FULL EXCEL EXPORT — /api/export/analytics-full.xlsx
+// ====================================================
+app.get("/api/export/analytics-full.xlsx", async (req, res) => {
+  try {
+    const ExcelJS = require("exceljs");
+    const dfRaw = String(req.query.date_from || "").trim();
+    const dtRaw = String(req.query.date_to || "").trim();
+    const yearRaw = parseInt(req.query.year || new Date().getFullYear(), 10);
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    const df = dateRe.test(dfRaw) ? dfRaw : null;
+    const dt = dateRe.test(dtRaw) ? dtRaw : null;
+    const today = new Date().toISOString().slice(0, 10);
+    const pFrom = df || (today.slice(0, 4) + "-01-01");
+    const pTo   = dt || today;
+    const year = yearRaw >= 2000 && yearRaw <= 2100 ? yearRaw : new Date().getFullYear();
+    const fmt  = v => Number(v || 0).toLocaleString("ru-RU");
+    const monthNames = ["","Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+    const [mRows, bRows, gRows, eRows] = await Promise.all([
+      db.query(
+        `WITH rev AS (
+          SELECT to_char(check_in::date,'MM') AS m,
+                 SUM(price_total) AS revenue, COUNT(*) AS cnt,
+                 SUM(check_out::date - check_in::date) AS nights
+          FROM bookings WHERE booking_status IN ('CONFIRMED','COMPLETED')
+            AND to_char(check_in::date,'YYYY')=$1 GROUP BY m
+        ), exp AS (
+          SELECT to_char(exp_date::date,'MM') AS m, SUM(amount) AS expenses
+          FROM expenses WHERE to_char(exp_date::date,'YYYY')=$1 GROUP BY m
+        )
+        SELECT to_char(gs.n,'FM00') AS month,
+               COALESCE(rev.revenue,0) AS revenue, COALESCE(exp.expenses,0) AS expenses,
+               COALESCE(rev.cnt,0) AS bookings_count, COALESCE(rev.nights,0) AS nights,
+               (COALESCE(rev.revenue,0)-COALESCE(exp.expenses,0)) AS net,
+               CASE WHEN COALESCE(rev.cnt,0)>0 THEN COALESCE(rev.revenue,0)/rev.cnt ELSE 0 END AS avg_check
+        FROM generate_series(1,12) AS gs(n)
+        LEFT JOIN rev ON rev.m=to_char(gs.n,'FM00')
+        LEFT JOIN exp ON exp.m=to_char(gs.n,'FM00')
+        ORDER BY gs.n`,
+        [String(year)]
+      ),
+      db.query(
+        `SELECT b.id, g.full_name, b.check_in, b.check_out,
+                (b.check_out::date - b.check_in::date) AS nights,
+                b.booking_status, b.price_total, b.prepayment,
+                (b.price_total - b.prepayment) AS remaining, b.payment_status
+         FROM bookings b JOIN guests g ON g.id = b.guest_id
+         WHERE b.check_in >= $1 AND b.check_in <= $2
+         ORDER BY b.check_in DESC LIMIT 500`,
+        [pFrom, pTo]
+      ),
+      db.query(
+        `SELECT g.full_name, g.phone,
+                COUNT(b.id) AS bookings_count,
+                COALESCE(SUM(CASE WHEN b.booking_status IN ('CONFIRMED','COMPLETED') THEN b.price_total ELSE 0 END),0) AS total_spent,
+                MAX(b.check_in) AS last_visit
+         FROM guests g
+         LEFT JOIN bookings b ON b.guest_id = g.id AND b.check_in >= $1 AND b.check_in <= $2
+         GROUP BY g.id, g.full_name, g.phone
+         HAVING COUNT(b.id) > 0
+         ORDER BY total_spent DESC LIMIT 100`,
+        [pFrom, pTo]
+      ),
+      db.query(
+        `SELECT exp_date, category, amount, note
+         FROM expenses WHERE exp_date >= $1 AND exp_date <= $2
+         ORDER BY exp_date DESC LIMIT 500`,
+        [pFrom, pTo]
+      ),
+    ]);
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Relax Borovoe CRM";
+
+    const brandFill = { type:"pattern", pattern:"solid", fgColor:{argb:"FF0E7C66"} };
+    const hdrFont   = { bold:true, color:{argb:"FFFFFFFF"} };
+    const altFill   = { type:"pattern", pattern:"solid", fgColor:{argb:"FFF0FDF4"} };
+
+    function styleHeader(ws) {
+      ws.getRow(1).eachCell(c => {
+        c.fill = brandFill;
+        c.font = hdrFont;
+        c.alignment = { vertical:"middle", horizontal:"center" };
+      });
+      ws.getRow(1).height = 22;
+    }
+
+    // Sheet 1 — Monthly
+    const wsM = wb.addWorksheet(`По месяцам ${year}`);
+    wsM.columns = [
+      {header:"Месяц",key:"month",width:14},
+      {header:"Выручка (₸)",key:"revenue",width:18},
+      {header:"Расходы (₸)",key:"expenses",width:18},
+      {header:"Прибыль (₸)",key:"net",width:18},
+      {header:"Броней",key:"cnt",width:10},
+      {header:"Ночей",key:"nights",width:10},
+      {header:"Средний чек (₸)",key:"avg",width:18},
+    ];
+    styleHeader(wsM);
+    let totRev=0,totExp=0,totNet=0,totCnt=0,totNights=0;
+    mRows.rows.forEach((r,i) => {
+      const rev=Number(r.revenue||0), exp=Number(r.expenses||0), net=Number(r.net||0), cnt=Number(r.bookings_count||0), nights=Number(r.nights||0);
+      totRev+=rev; totExp+=exp; totNet+=net; totCnt+=cnt; totNights+=nights;
+      const row = wsM.addRow({month:monthNames[Number(r.month)]||r.month, revenue:rev, expenses:exp, net, cnt, nights, avg:Number(r.avg_check||0)});
+      if(i%2===1) row.eachCell(c=>{ c.fill=altFill; });
+    });
+    const totRow = wsM.addRow({month:"ИТОГО",revenue:totRev,expenses:totExp,net:totNet,cnt:totCnt,nights:totNights,avg:totCnt>0?Math.round(totRev/totCnt):0});
+    totRow.font={bold:true}; totRow.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFE7F6F2"}};
+
+    // Sheet 2 — Bookings
+    const wsB = wb.addWorksheet(`Брони ${pFrom}—${pTo}`);
+    wsB.columns = [
+      {header:"Гость",key:"guest",width:24},{header:"Заезд",key:"ci",width:12},{header:"Выезд",key:"co",width:12},
+      {header:"Ночей",key:"nights",width:8},{header:"Статус",key:"status",width:14},
+      {header:"Сумма (₸)",key:"total",width:16},{header:"Предоплата (₸)",key:"pre",width:16},
+      {header:"Остаток (₸)",key:"rem",width:14},{header:"Оплата",key:"pay",width:14},
+    ];
+    styleHeader(wsB);
+    const statusRu = {CONFIRMED:"Подтверждено",COMPLETED:"Завершено",REQUEST:"Запрос",CANCELLED:"Отменено"};
+    const payRu    = {PAID:"Оплачено",PARTIAL:"Частично",UNPAID:"Не оплачено"};
+    bRows.rows.forEach((r,i) => {
+      const row = wsB.addRow({guest:r.full_name,ci:String(r.check_in).slice(0,10),co:String(r.check_out).slice(0,10),
+        nights:Number(r.nights||0),status:statusRu[r.booking_status]||r.booking_status,
+        total:Number(r.price_total||0),pre:Number(r.prepayment||0),rem:Number(r.remaining||0),
+        pay:payRu[r.payment_status]||r.payment_status});
+      if(i%2===1) row.eachCell(c=>{ c.fill=altFill; });
+    });
+
+    // Sheet 3 — Guests
+    const wsG = wb.addWorksheet(`Гости ${pFrom}—${pTo}`);
+    wsG.columns = [
+      {header:"Гость",key:"name",width:24},{header:"Телефон",key:"phone",width:16},
+      {header:"Броней",key:"cnt",width:10},{header:"Всего потрачено (₸)",key:"spent",width:22},
+      {header:"Последний визит",key:"last",width:16},
+    ];
+    styleHeader(wsG);
+    gRows.rows.forEach((r,i) => {
+      const row = wsG.addRow({name:r.full_name,phone:r.phone||"",cnt:Number(r.bookings_count||0),
+        spent:Number(r.total_spent||0),last:r.last_visit?String(r.last_visit).slice(0,10):"—"});
+      if(i%2===1) row.eachCell(c=>{ c.fill=altFill; });
+    });
+
+    // Sheet 4 — Expenses
+    const wsE = wb.addWorksheet(`Расходы ${pFrom}—${pTo}`);
+    wsE.columns = [
+      {header:"Дата",key:"date",width:12},{header:"Категория",key:"cat",width:22},
+      {header:"Сумма (₸)",key:"amount",width:16},{header:"Комментарий",key:"note",width:30},
+    ];
+    styleHeader(wsE);
+    eRows.rows.forEach((r,i) => {
+      const row = wsE.addRow({date:String(r.exp_date).slice(0,10),cat:r.category||"",amount:Number(r.amount||0),note:r.note||""});
+      if(i%2===1) row.eachCell(c=>{ c.fill=altFill; });
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition",`attachment; filename="analytics_full_${year}.xlsx"`);
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    console.error("ANALYTICS FULL EXPORT ERROR:", err);
+    if (!res.headersSent) res.status(500).send("Export error");
+  }
+});
+
 // ------------------------
 // Health check (Railway uses this to verify the app is alive)
 // ------------------------

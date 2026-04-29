@@ -34,115 +34,131 @@
 
   <div class="container an-page">
 
-    <!-- ── Row 1: KPI cards ── -->
-    <div class="an-kpi-row">
+    <!-- ── FILTER BAR ── -->
+    <div class="card an-filter-card">
+      <div class="an-filter-bar">
+        <div class="an-pill-group" role="group">
+          <button class="an-pill" data-preset="today">Сегодня</button>
+          <button class="an-pill" data-preset="week">Неделя</button>
+          <button class="an-pill an-pill--active" data-preset="month">Месяц</button>
+          <button class="an-pill" data-preset="prevmonth">Пред. месяц</button>
+          <button class="an-pill" data-preset="year">Этот год</button>
+          <button class="an-pill" data-preset="prevyear">Пред. год</button>
+          <button class="an-pill" data-preset="all">Всё время</button>
+          <button class="an-pill" data-preset="custom">Свой период</button>
+        </div>
+        <div class="an-filter-spacer"></div>
+        <div class="an-filter-inline">
+          <label class="an-filter-inline__label" for="anYear">Год</label>
+          <select id="anYear" class="an-select-sm"></select>
+        </div>
+        <button id="btnApplyFilter" class="an-btn-apply">Показать</button>
+      </div>
+      <div class="an-date-range" id="anCustomRange" style="display:none;">
+        <div class="an-date-field">
+          <label for="anDateFrom">С</label>
+          <input id="anDateFrom" type="date" class="an-date-input" />
+        </div>
+        <div class="an-date-sep">—</div>
+        <div class="an-date-field">
+          <label for="anDateTo">По</label>
+          <input id="anDateTo" type="date" class="an-date-input" />
+        </div>
+        <button id="btnResetFilter" class="an-btn-reset">Сброс</button>
+      </div>
+      <div class="an-period-label" id="anPeriodLabel"></div>
+    </div>
 
+    <!-- ── KPI ROW 1: Revenue ── -->
+    <div class="an-kpi-row">
       <div class="an-kpi-card an-kpi-card--green">
         <div class="an-kpi-card__top">
           <span class="an-kpi-card__label">Выручка за период</span>
           <span class="an-kpi-card__icon">💰</span>
         </div>
         <div class="an-kpi-card__value" id="kpRevenue"><span class="kpiSpin"></span></div>
-        <div class="an-kpi-card__meta">
-          <span>Всего: </span><span id="kqAll" class="an-kpi-card__meta-val"><span class="kpiSpin"></span></span>
-        </div>
+        <div class="an-kpi-card__meta">Всего за всё время: <span class="an-kpi-card__meta-val" id="kqAll">…</span></div>
       </div>
-
       <div class="an-kpi-card an-kpi-card--red">
         <div class="an-kpi-card__top">
           <span class="an-kpi-card__label">Расходы за период</span>
-          <span class="an-kpi-card__icon">🧯</span>
+          <span class="an-kpi-card__icon">🧾</span>
         </div>
         <div class="an-kpi-card__value" id="kpExpenses"><span class="kpiSpin"></span></div>
-        <div class="an-kpi-card__meta">
-          <span>Сегодня: </span><span id="kqToday" class="an-kpi-card__meta-val"><span class="kpiSpin"></span></span>
-        </div>
+        <div class="an-kpi-card__meta">Сегодня: <span class="an-kpi-card__meta-val" id="kqToday">…</span></div>
       </div>
-
       <div class="an-kpi-card an-kpi-card--blue">
         <div class="an-kpi-card__top">
           <span class="an-kpi-card__label">Чистая прибыль</span>
           <span class="an-kpi-card__icon">📈</span>
         </div>
         <div class="an-kpi-card__value" id="kpNet"><span class="kpiSpin"></span></div>
-        <div class="an-kpi-card__meta">
-          <span>Средний чек: </span><span id="kpAvg" class="an-kpi-card__meta-val"><span class="kpiSpin"></span></span>
-        </div>
+        <div class="an-kpi-card__meta">Средний чек: <span class="an-kpi-card__meta-val" id="kpAvg">…</span></div>
       </div>
-
       <div class="an-kpi-card">
         <div class="an-kpi-card__top">
           <span class="an-kpi-card__label">Брони за период</span>
-          <span class="an-kpi-card__icon">🧾</span>
+          <span class="an-kpi-card__icon">🗂️</span>
         </div>
         <div class="an-kpi-card__value" id="kpCount"><span class="kpiSpin"></span></div>
-        <div class="an-kpi-card__meta">
-          <span>Эта неделя: </span><span id="kqWeek" class="an-kpi-card__meta-val"><span class="kpiSpin"></span></span>
-        </div>
+        <div class="an-kpi-card__meta">Этот месяц: <span class="an-kpi-card__meta-val" id="kqMonth">…</span></div>
       </div>
-
     </div>
 
-    <!-- ── Row 2: Filter bar ── -->
-    <div class="card an-filter-card">
-      <div class="an-filter-bar">
-
-        <!-- Pill group -->
-        <div class="an-pill-group" role="group">
-          <button class="an-pill" data-preset="today">Сегодня</button>
-          <button class="an-pill" data-preset="week">Неделя</button>
-          <button class="an-pill an-pill--active" data-preset="month">Месяц</button>
-          <button class="an-pill" data-preset="year">Этот год</button>
-          <button class="an-pill" data-preset="all">Всё время</button>
-          <button class="an-pill" data-preset="custom">Свой период</button>
+    <!-- ── KPI ROW 2: Extended ── -->
+    <div class="an-kpi-row an-kpi-row--6">
+      <div class="an-kpi-card">
+        <div class="an-kpi-card__top">
+          <span class="an-kpi-card__label">Предоплата</span>
+          <span class="an-kpi-card__icon">💳</span>
         </div>
-
-        <!-- Spacer -->
-        <div class="an-filter-spacer"></div>
-
-        <!-- Year selector (always visible, for monthly chart) -->
-        <div class="an-filter-inline">
-          <label class="an-filter-inline__label" for="anYear">Год</label>
-          <select id="anYear" class="an-select-sm"></select>
-        </div>
-
-        <!-- Status filter -->
-        <div class="an-filter-inline">
-          <label class="an-filter-inline__label" for="anStatus">Статус</label>
-          <select id="anStatus" class="an-select-sm">
-            <option value="">Все активные</option>
-            <option value="CONFIRMED">Подтверждено</option>
-            <option value="COMPLETED">Завершено</option>
-            <option value="REQUEST">Запрос</option>
-            <option value="CANCELLED">Отменено</option>
-          </select>
-        </div>
-
-        <!-- Apply -->
-        <button id="btnApplyFilter" class="an-btn-apply">Показать</button>
-
+        <div class="an-kpi-card__value" id="kpPrepay"><span class="kpiSpin"></span></div>
+        <div class="an-kpi-card__meta">₸ получено авансом</div>
       </div>
-
-      <!-- Custom date range (hidden unless "custom" selected) -->
-      <div class="an-date-range" id="anCustomRange" style="display:none;">
-        <div class="an-date-field">
-          <label for="anDateFrom">Дата с</label>
-          <input id="anDateFrom" type="date" class="an-date-input" />
+      <div class="an-kpi-card">
+        <div class="an-kpi-card__top">
+          <span class="an-kpi-card__label">Остаток к оплате</span>
+          <span class="an-kpi-card__icon">⏳</span>
         </div>
-        <div class="an-date-sep">—</div>
-        <div class="an-date-field">
-          <label for="anDateTo">Дата по</label>
-          <input id="anDateTo" type="date" class="an-date-input" />
-        </div>
-        <button id="btnResetFilter" class="an-btn-reset">Сброс</button>
+        <div class="an-kpi-card__value" id="kpRemaining"><span class="kpiSpin"></span></div>
+        <div class="an-kpi-card__meta">₸ ещё не оплачено</div>
       </div>
-
+      <div class="an-kpi-card">
+        <div class="an-kpi-card__top">
+          <span class="an-kpi-card__label">Занятость</span>
+          <span class="an-kpi-card__icon">🏠</span>
+        </div>
+        <div class="an-kpi-card__value" id="kpOccupancy"><span class="kpiSpin"></span></div>
+        <div class="an-kpi-card__meta"><span id="kpOccNights">…</span> ночей из <span id="kpPeriodDays">…</span></div>
+      </div>
+      <div class="an-kpi-card">
+        <div class="an-kpi-card__top">
+          <span class="an-kpi-card__label">Уникальных гостей</span>
+          <span class="an-kpi-card__icon">👤</span>
+        </div>
+        <div class="an-kpi-card__value" id="kpUniqueGuests"><span class="kpiSpin"></span></div>
+        <div class="an-kpi-card__meta">За выбранный период</div>
+      </div>
+      <div class="an-kpi-card">
+        <div class="an-kpi-card__top">
+          <span class="an-kpi-card__label">Повторные гости</span>
+          <span class="an-kpi-card__icon">🔁</span>
+        </div>
+        <div class="an-kpi-card__value" id="kpReturning"><span class="kpiSpin"></span></div>
+        <div class="an-kpi-card__meta">Бронировали более 1 раза</div>
+      </div>
+      <div class="an-kpi-card">
+        <div class="an-kpi-card__top">
+          <span class="an-kpi-card__label">Ср. ночей на бронь</span>
+          <span class="an-kpi-card__icon">🌙</span>
+        </div>
+        <div class="an-kpi-card__value" id="kpAvgNights"><span class="kpiSpin"></span></div>
+        <div class="an-kpi-card__meta">Средняя длительность</div>
+      </div>
     </div>
 
-    <!-- ── Row 3: Charts ── -->
+    <!-- ── REVENUE CHART ── -->
     <div class="an-charts-grid">
-
-      <!-- Main chart (wide) -->
       <div class="card an-chart-main">
         <div class="an-chart-header">
           <div>
@@ -169,51 +185,135 @@
         </div>
       </div>
 
-      <!-- Right panel: status breakdown -->
+      <!-- Status breakdown -->
       <div class="card an-chart-side">
-        <div class="an-chart-title" style="margin-bottom:16px;">Статусы броней</div>
-        <div id="statusBreakdown">
-          <div class="emptyState" style="padding:20px 0;">
-            <div class="kpiSpin" style="margin:0 auto;"></div>
-          </div>
-        </div>
+        <div class="an-chart-title" style="margin-bottom:12px;">Статусы броней</div>
+        <canvas id="statusDonut" class="an-donut-canvas"></canvas>
+        <div id="statusBreakdown" style="margin-top:12px;"></div>
         <div class="an-side-stats">
           <div class="an-side-stat">
             <div class="an-side-stat__label">Этот месяц</div>
-            <div class="an-side-stat__value" id="kqMonth"><span class="kpiSpin"></span></div>
+            <div class="an-side-stat__value" id="kqMonth2"><span class="kpiSpin"></span></div>
           </div>
         </div>
       </div>
-
     </div>
 
-    <!-- ── Row 4: Yearly table ── -->
+    <!-- ── BOOKING ANALYTICS ── -->
+    <div class="an-section-title">Аналитика броней</div>
+    <div class="an-charts-grid">
+      <div class="card an-chart-main">
+        <div class="an-chart-header">
+          <div class="an-chart-title">Брони по месяцам</div>
+        </div>
+        <canvas id="bookingsByMonthChart" class="an-canvas"></canvas>
+        <div class="an-legend">
+          <span class="an-legend-item"><i class="an-legend-dot" style="background:rgba(14,124,102,.8);"></i>Подтверждено/Завершено</span>
+        </div>
+      </div>
+      <div class="card an-chart-side" style="justify-content:flex-start;gap:14px;">
+        <div class="an-chart-title">Статистика броней</div>
+        <div id="bookingStatsGrid" class="an-mini-stats-grid">
+          <div class="kpiSpin" style="margin:20px auto;display:block;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── OCCUPANCY ── -->
+    <div class="an-section-title">Загруженность объекта</div>
+    <div class="an-charts-grid">
+      <div class="card an-chart-main">
+        <div class="an-chart-header">
+          <div class="an-chart-title">Загруженность по месяцам — <span id="occupancyYear"></span></div>
+        </div>
+        <canvas id="occupancyChart" class="an-canvas"></canvas>
+        <div class="an-legend">
+          <span class="an-legend-item"><i class="an-legend-dot" style="background:rgba(14,124,102,.7);"></i>Занятые ночи</span>
+          <span class="an-legend-item"><i class="an-legend-dot" style="background:rgba(226,232,240,.9);border:1px solid #cbd5e1;"></i>Свободные ночи</span>
+        </div>
+      </div>
+      <div class="card an-chart-side" style="justify-content:flex-start;gap:14px;">
+        <div class="an-chart-title">Доля занятости</div>
+        <canvas id="occupancyDonut" class="an-donut-canvas"></canvas>
+        <div id="occupancyStats" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- ── EXPENSE ANALYTICS ── -->
+    <div class="an-section-title">Аналитика расходов</div>
+    <div class="an-charts-grid">
+      <div class="card an-chart-main">
+        <div class="an-chart-header">
+          <div class="an-chart-title">Расходы по месяцам</div>
+        </div>
+        <canvas id="expensesChart" class="an-canvas"></canvas>
+      </div>
+      <div class="card an-chart-side" style="justify-content:flex-start;gap:14px;">
+        <div class="an-chart-title">По категориям</div>
+        <canvas id="expCatDonut" class="an-donut-canvas"></canvas>
+        <div id="expCatList" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- ── PAYMENT ANALYTICS ── -->
+    <div class="an-section-title">Аналитика оплат</div>
+    <div class="an-charts-grid">
+      <div class="card an-chart-main">
+        <div class="an-chart-header">
+          <div class="an-chart-title">Предоплата vs Остаток</div>
+        </div>
+        <canvas id="paymentChart" class="an-canvas"></canvas>
+        <div class="an-legend">
+          <span class="an-legend-item"><i class="an-legend-dot" style="background:rgba(14,124,102,.8);"></i>Предоплата</span>
+          <span class="an-legend-item"><i class="an-legend-dot" style="background:rgba(220,104,3,.7);"></i>Остаток</span>
+        </div>
+      </div>
+      <div class="card an-chart-side" style="justify-content:flex-start;gap:14px;">
+        <div class="an-chart-title">Статусы оплат</div>
+        <canvas id="payStatusDonut" class="an-donut-canvas"></canvas>
+        <div id="payStatusStats" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- ── MONTHLY SUMMARY TABLE ── -->
     <div class="card an-table-card">
       <div class="an-table-header">
         <div class="an-chart-title">По месяцам — <span id="yearlyTableYear"></span></div>
       </div>
       <div id="yearlyTable">
-        <div class="emptyState" style="padding:24px 0;">
-          <div class="kpiSpin" style="margin:0 auto;"></div>
-        </div>
+        <div class="emptyState" style="padding:24px 0;"><div class="kpiSpin" style="margin:0 auto;"></div></div>
       </div>
     </div>
 
-    <!-- ── Row 5: Export ── -->
+    <!-- ── TOP GUESTS TABLE ── -->
+    <div class="card an-table-card">
+      <div class="an-table-header">
+        <div class="an-chart-title">Топ гостей за период</div>
+        <div class="small" style="margin-top:2px;">Возвращающийся — более 1 активной брони за всё время</div>
+      </div>
+      <div id="topGuestsTable">
+        <div class="emptyState" style="padding:24px 0;"><div class="kpiSpin" style="margin:0 auto;"></div></div>
+      </div>
+    </div>
+
+    <!-- ── EXPORT ── -->
     <div class="card an-export-card">
       <div class="an-chart-title" style="margin-bottom:14px;">Экспорт данных</div>
       <div class="an-export-row">
-        <button id="btnExportAnalytics" class="an-export-btn an-export-btn--primary">
-          <span>📊</span> Аналитика — Excel
+        <button id="btnExportFull" class="an-export-btn an-export-btn--primary">
+          <span>📊</span> Полная аналитика — Excel
+        </button>
+        <button id="btnExportAnalytics" class="an-export-btn">
+          <span>📅</span> По месяцам — Excel
         </button>
         <button id="btnExportBookings" class="an-export-btn">
-          <span>🧾</span> Брони — Excel
+          <span>🗂️</span> Брони — Excel
         </button>
         <button id="btnExportGuests" class="an-export-btn">
           <span>👤</span> Гости — Excel
         </button>
         <button id="btnExportExpenses" class="an-export-btn">
-          <span>🧯</span> Расходы — Excel
+          <span>🧾</span> Расходы — Excel
         </button>
       </div>
     </div>

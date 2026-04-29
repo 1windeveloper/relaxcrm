@@ -1426,306 +1426,490 @@ function drawGroupedChart(canvas, labels, datasets) {
   }
 }
 
+// =================== DONUT CHART ===================
+function drawDonutChart(canvas, values, labels, colors) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const size = 140;
+  canvas.width = size * dpr; canvas.height = size * dpr;
+  canvas.style.width = size + "px"; canvas.style.height = size + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, size, size);
+  const total = values.reduce((a, b) => a + b, 0);
+  if (!total) {
+    ctx.beginPath(); ctx.arc(size/2, size/2, size/2 - 16, 0, Math.PI*2);
+    ctx.strokeStyle = "#e5e7eb"; ctx.lineWidth = 22; ctx.stroke();
+    return;
+  }
+  let angle = -Math.PI / 2;
+  values.forEach((v, i) => {
+    const slice = (v / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(size/2, size/2);
+    ctx.arc(size/2, size/2, size/2 - 10, angle, angle + slice);
+    ctx.closePath();
+    ctx.fillStyle = colors[i] || "#94a3b8";
+    ctx.fill();
+    angle += slice;
+  });
+  // Donut hole
+  ctx.beginPath(); ctx.arc(size/2, size/2, size/2 - 30, 0, Math.PI*2);
+  ctx.fillStyle = "#fff"; ctx.fill();
+  // Center total
+  ctx.fillStyle = "#0f172a"; ctx.font = "bold 15px system-ui";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(total, size/2, size/2);
+}
+
 // =================== ANALYTICS PAGE ===================
 async function initAnalyticsPage() {
   const canvas = document.getElementById("analyticsChart");
   if (!canvas) return;
 
-  const kqToday = $("kqToday");
-  const kqWeek  = $("kqWeek");
-  const kqMonth = $("kqMonth");
-  const kqAll   = $("kqAll");
+  const fmt  = v => Number(v || 0).toLocaleString("ru-RU");
+  const fmtK = v => { const n = Math.abs(Number(v||0)); return n >= 1000000 ? (v/1000000).toFixed(1)+"M ₸" : n >= 1000 ? Math.round(v/1000)+"K ₸" : v+" ₸"; };
+  const monthRu = ["","Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+  const monthFull = ["","Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  const pad2 = n => String(n).padStart(2,"0");
 
-  const kpRevenue  = $("kpRevenue");
-  const kpExpenses = $("kpExpenses");
-  const kpNet      = $("kpNet");
-  const kpCount    = $("kpCount");
-  const kpAvg      = $("kpAvg");
-  const chartEmpty = $("chartEmpty");
-  const chartRangeHint = $("chartRangeHint");
-  const statusBreakdownEl = $("statusBreakdown");
+  let chartMode = "daily";
+  let lastMainData = null;
 
-  let chartMode = "daily"; // "daily" | "monthly"
-  let lastData = null;
-
-  // Populate year selector
+  // ── Year selector ──
   const anYearEl = $("anYear");
   if (anYearEl) {
     const curYear = new Date().getFullYear();
     for (let y = curYear; y >= 2022; y--) {
-      const opt = document.createElement("option");
-      opt.value = String(y);
-      opt.textContent = String(y);
-      anYearEl.appendChild(opt);
+      const o = document.createElement("option");
+      o.value = String(y); o.textContent = String(y);
+      anYearEl.appendChild(o);
     }
     anYearEl.value = String(curYear);
   }
 
-  // Set default "month" preset dates
-  const _now = new Date();
-  const _pad = n => String(n).padStart(2, "0");
-  const _df = $("anDateFrom");
-  const _dt = $("anDateTo");
-  if (_df && !_df.value) _df.value = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-01`;
-  if (_dt && !_dt.value) _dt.value = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
+  // ── Default dates ──
+  const now = new Date();
+  const dfEl = $("anDateFrom"), dtEl = $("anDateTo");
+  if (dfEl && !dfEl.value) dfEl.value = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-01`;
+  if (dtEl && !dtEl.value) dtEl.value = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
 
-  function fmt(v) { return Number(v || 0).toLocaleString("ru-RU"); }
+  function todayStr() { return new Date().toISOString().slice(0, 10); }
 
-  function buildQuery() {
-    const df = $("anDateFrom")?.value || "";
-    const dt = $("anDateTo")?.value || "";
-    const st = $("anStatus")?.value || "";
-    const year = $("anYear")?.value || String(new Date().getFullYear());
-    const params = new URLSearchParams();
-    if (df) params.set("date_from", df);
-    if (dt) params.set("date_to", dt);
-    if (st) params.set("status", st);
-    params.set("year", year);
-    return params.toString();
+  function buildParams() {
+    const df = dfEl?.value || "", dt = dtEl?.value || "";
+    const year = anYearEl?.value || String(new Date().getFullYear());
+    const p = new URLSearchParams();
+    if (df) p.set("date_from", df);
+    if (dt) p.set("date_to", dt);
+    p.set("year", year);
+    return p;
   }
 
-  // Period preset handlers
-  function todayStr() { return new Date().toISOString().slice(0, 10); }
+  function updatePeriodLabel() {
+    const df = dfEl?.value || "", dt = dtEl?.value || "";
+    const el = $("anPeriodLabel");
+    if (!el) return;
+    if (df && dt) {
+      const fmtD = s => s.split("-").reverse().join(".");
+      el.textContent = `Период аналитики: ${fmtD(df)} — ${fmtD(dt)}`;
+    } else if (df) {
+      el.textContent = `С ${df.split("-").reverse().join(".")}`;
+    } else {
+      el.textContent = "Период: всё время";
+    }
+  }
+
   function setPreset(preset) {
     const today = new Date();
-    const df = $("anDateFrom");
-    const dt = $("anDateTo");
-    if (!df || !dt) return;
-    const pad2 = n => String(n).padStart(2, "0");
     const fmt2 = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    if (!dfEl || !dtEl) return;
 
     if (preset === "today") {
-      const t = todayStr();
-      df.value = t; dt.value = t;
+      dfEl.value = dtEl.value = todayStr();
     } else if (preset === "week") {
-      const wDay = today.getDay();
-      const diff = wDay === 0 ? -6 : 1 - wDay;
+      const diff = today.getDay() === 0 ? -6 : 1 - today.getDay();
       const start = new Date(today); start.setDate(today.getDate() + diff);
-      df.value = fmt2(start); dt.value = todayStr();
+      dfEl.value = fmt2(start); dtEl.value = todayStr();
     } else if (preset === "month") {
-      df.value = `${today.getFullYear()}-${pad2(today.getMonth()+1)}-01`;
-      dt.value = todayStr();
+      dfEl.value = `${today.getFullYear()}-${pad2(today.getMonth()+1)}-01`;
+      dtEl.value = todayStr();
+    } else if (preset === "prevmonth") {
+      const pm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const pme = new Date(today.getFullYear(), today.getMonth(), 0);
+      dfEl.value = fmt2(pm); dtEl.value = fmt2(pme);
     } else if (preset === "year") {
-      df.value = `${today.getFullYear()}-01-01`;
-      dt.value = todayStr();
+      dfEl.value = `${today.getFullYear()}-01-01`; dtEl.value = todayStr();
+    } else if (preset === "prevyear") {
+      const py = today.getFullYear() - 1;
+      dfEl.value = `${py}-01-01`; dtEl.value = `${py}-12-31`;
+      if (anYearEl) anYearEl.value = String(py);
     } else if (preset === "all") {
-      df.value = ""; dt.value = "";
+      dfEl.value = ""; dtEl.value = "";
     } else if (preset === "custom") {
-      // just reveal the fields, don't change values
+      // just show fields
     }
 
-    // Show/hide custom date range
-    const customRange = $("anCustomRange");
-    if (customRange) customRange.style.display = preset === "custom" ? "flex" : "none";
-
-    // Mark active pill
+    const cr = $("anCustomRange");
+    if (cr) cr.style.display = preset === "custom" ? "flex" : "none";
     document.querySelectorAll(".an-pill").forEach(b => b.classList.remove("an-pill--active"));
-    const activeBtn = document.querySelector(`.an-pill[data-preset="${preset}"]`);
-    if (activeBtn) activeBtn.classList.add("an-pill--active");
-
-    if (preset !== "custom") load();
+    document.querySelector(`.an-pill[data-preset="${preset}"]`)?.classList.add("an-pill--active");
+    if (preset !== "custom") loadAll();
   }
 
   document.querySelectorAll(".an-pill").forEach(btn => {
     btn.addEventListener("click", () => setPreset(btn.dataset.preset));
   });
 
-  function renderChart(data) {
+  // ── Main revenue chart ──
+  function renderMainChart(data) {
+    const chartEmpty = $("chartEmpty"), chartRangeHint = $("chartRangeHint");
+    const daily = data.chart?.daily || [], monthly = data.chart?.monthly || [];
     const isEmpty = chartMode === "daily"
-      ? !data.chart.daily.length || data.chart.daily.every(d => d.revenue === 0 && d.expenses === 0)
-      : !data.chart.monthly.length || data.chart.monthly.every(d => d.revenue === 0 && d.expenses === 0);
+      ? daily.every(d => d.revenue === 0 && d.expenses === 0)
+      : monthly.every(d => d.revenue === 0 && d.expenses === 0);
 
-    if (isEmpty) {
-      canvas.style.display = "none";
-      if (chartEmpty) chartEmpty.style.display = "flex";
-      return;
-    }
-    canvas.style.display = "";
-    if (chartEmpty) chartEmpty.style.display = "none";
+    canvas.style.display = isEmpty ? "none" : "";
+    if (chartEmpty) chartEmpty.style.display = isEmpty ? "flex" : "none";
+    if (isEmpty) return;
 
     if (chartMode === "daily") {
-      const labels = data.chart.daily.map(d => d.date.slice(5)); // MM-DD
-      drawGroupedChart(canvas, labels, [
-        { label: "Выручка",  color: "rgba(14,124,102,.75)", values: data.chart.daily.map(d => d.revenue) },
-        { label: "Расходы",  color: "rgba(220,104,3,.65)",  values: data.chart.daily.map(d => d.expenses) },
+      drawGroupedChart(canvas, daily.map(d => d.date.slice(5)), [
+        { label:"Выручка",  color:"rgba(14,124,102,.75)", values: daily.map(d => d.revenue) },
+        { label:"Расходы",  color:"rgba(220,104,3,.65)",  values: daily.map(d => d.expenses) },
       ]);
-      const df = $("anDateFrom")?.value || "";
-      const dt = $("anDateTo")?.value || "";
-      if (chartRangeHint) chartRangeHint.textContent = df && dt ? `Период: ${df} — ${dt}` : "Период: этот месяц";
+      const df = dfEl?.value || "", dt = dtEl?.value || "";
+      if (chartRangeHint) chartRangeHint.textContent = df && dt ? `${df} — ${dt}` : "Этот месяц";
     } else {
-      const monthRu = ["", "Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
-      const labels = data.chart.monthly.map(d => monthRu[Number(d.month)] || d.month);
-      drawGroupedChart(canvas, labels, [
-        { label: "Выручка",        color: "rgba(14,124,102,.75)", values: data.chart.monthly.map(d => d.revenue) },
-        { label: "Расходы",        color: "rgba(220,104,3,.65)",  values: data.chart.monthly.map(d => d.expenses) },
-        { label: "Чистая прибыль", color: "rgba(37,99,235,.65)",  values: data.chart.monthly.map(d => d.net) },
+      drawGroupedChart(canvas, monthly.map(d => monthRu[Number(d.month)] || d.month), [
+        { label:"Выручка",        color:"rgba(14,124,102,.75)", values: monthly.map(d => d.revenue) },
+        { label:"Расходы",        color:"rgba(220,104,3,.65)",  values: monthly.map(d => d.expenses) },
+        { label:"Чистая прибыль", color:"rgba(37,99,235,.65)",  values: monthly.map(d => d.net) },
       ]);
-      const chartYear = $("anYear")?.value || new Date().getFullYear();
-      if (chartRangeHint) chartRangeHint.textContent = `По месяцам — ${chartYear}`;
+      if (chartRangeHint) chartRangeHint.textContent = `По месяцам — ${anYearEl?.value || new Date().getFullYear()}`;
     }
   }
 
-  function renderYearlyTable(monthly, year) {
-    const el = $("yearlyTable");
-    const yearLabel = $("yearlyTableYear");
-    if (yearLabel) yearLabel.textContent = year || $("anYear")?.value || new Date().getFullYear();
-    if (!el) return;
-
-    const hasData = monthly && monthly.some(r => Number(r.revenue) > 0 || Number(r.expenses) > 0);
-    if (!monthly || !monthly.length || !hasData) {
-      el.innerHTML = `<div class="emptyState" style="padding:20px 0;"><div class="emptyState__sub">Нет данных за выбранный год</div></div>`;
-      return;
-    }
-
-    const monthNames = ["", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-    let totalRev = 0, totalExp = 0, totalNet = 0;
-    const rows = monthly.map(r => {
-      const rev = Number(r.revenue || 0);
-      const exp = Number(r.expenses || 0);
-      const net = Number(r.net || 0);
-      totalRev += rev; totalExp += exp; totalNet += net;
-      const netCls = net >= 0 ? "an-ytable__pos" : "an-ytable__neg";
-      const isEmpty = rev === 0 && exp === 0;
-      return `<tr class="${isEmpty ? 'an-ytable__empty-row' : ''}">
-        <td>${monthNames[Number(r.month)] || r.month}</td>
-        <td>${rev > 0 ? fmt(rev) : '—'}</td>
-        <td>${exp > 0 ? fmt(exp) : '—'}</td>
-        <td class="${netCls}" style="font-weight:700;">${isEmpty ? '—' : fmt(net)}</td>
-      </tr>`;
-    }).join("");
-
-    const netTotCls = totalNet >= 0 ? "an-ytable__pos" : "an-ytable__neg";
-    el.innerHTML = `<div class="an-ytable-wrap">
-      <table class="an-ytable">
-        <thead>
-          <tr>
-            <th>Месяц</th>
-            <th>Выручка (₸)</th>
-            <th>Расходы (₸)</th>
-            <th>Прибыль (₸)</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-        <tfoot>
-          <tr>
-            <td>ИТОГО</td>
-            <td>${fmt(totalRev)}</td>
-            <td>${fmt(totalExp)}</td>
-            <td class="${netTotCls}">${fmt(totalNet)}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>`;
-  }
-
+  // ── Status breakdown ──
   function renderStatusBreakdown(breakdown) {
-    if (!statusBreakdownEl) return;
-    const total = Object.values(breakdown).reduce((s, v) => s + v, 0);
+    const el = $("statusBreakdown");
+    const statusDonut = $("statusDonut");
     const items = [
-      { key: "CONFIRMED", label: "Подтверждено", color: "#22c55e" },
-      { key: "COMPLETED", label: "Завершено",    color: "#0E7C66" },
-      { key: "REQUEST",   label: "Запрос",        color: "#f59e0b" },
-      { key: "CANCELLED", label: "Отменено",      color: "#ef4444" },
+      { key:"CONFIRMED", label:"Подтверждено", color:"#22c55e" },
+      { key:"COMPLETED", label:"Завершено",    color:"#0E7C66" },
+      { key:"REQUEST",   label:"Запрос",       color:"#f59e0b" },
+      { key:"CANCELLED", label:"Отменено",     color:"#ef4444" },
     ];
-    if (!total) {
-      statusBreakdownEl.innerHTML = `<div class="emptyState" style="padding:20px 0;"><div class="emptyState__icon">🗂️</div><div class="emptyState__sub">Броней пока нет</div></div>`;
-      return;
-    }
-    statusBreakdownEl.innerHTML = `<div class="statusBar">` + items.map(item => {
+    const total = Object.values(breakdown).reduce((s,v) => s+v, 0);
+    if (statusDonut) drawDonutChart(statusDonut,
+      items.map(i => breakdown[i.key] || 0), items.map(i => i.label), items.map(i => i.color));
+    if (!el) return;
+    if (!total) { el.innerHTML = `<div class="emptyState" style="padding:12px 0;"><div class="emptyState__sub">Броней пока нет</div></div>`; return; }
+    el.innerHTML = `<div class="statusBar">` + items.map(item => {
       const cnt = breakdown[item.key] || 0;
-      const pct = total ? Math.round(cnt / total * 100) : 0;
+      const pct = Math.round(cnt / total * 100);
       return `<div class="statusBar__row">
         <div class="statusBar__label">${item.label}</div>
         <div class="statusBar__track"><div class="statusBar__fill" style="width:${pct}%;background:${item.color};"></div></div>
         <div class="statusBar__count">${cnt}</div>
       </div>`;
-    }).join("") + `</div>`;
+    }).join("") + "</div>";
   }
 
-  async function load() {
-    try {
-      const qs = buildQuery();
-      const data = await apiGet(`/api/analytics?${qs}`);
-      lastData = data;
+  // ── Yearly summary table (enhanced) ──
+  function renderYearlyTable(monthly, year) {
+    const el = $("yearlyTable");
+    const yl = $("yearlyTableYear");
+    if (yl) yl.textContent = year || anYearEl?.value || new Date().getFullYear();
+    if (!el) return;
+    const hasData = monthly?.some(r => r.revenue > 0 || r.expenses > 0);
+    if (!monthly?.length || !hasData) {
+      el.innerHTML = `<div class="emptyState" style="padding:20px 0;"><div class="emptyState__sub">Нет данных за выбранный год</div></div>`;
+      return;
+    }
+    let tRev=0, tExp=0, tNet=0, tCnt=0;
+    const rows = monthly.map(r => {
+      const rev=Number(r.revenue||0), exp=Number(r.expenses||0), net=Number(r.net||0), cnt=Number(r.bookings_count||0);
+      tRev+=rev; tExp+=exp; tNet+=net; tCnt+=cnt;
+      const netCls = net>=0 ? "an-ytable__pos" : "an-ytable__neg";
+      const empty  = rev===0 && exp===0;
+      const avg = cnt > 0 ? Math.round(rev/cnt) : 0;
+      return `<tr class="${empty ? 'an-ytable__empty-row':''}">
+        <td>${monthFull[Number(r.month)]||r.month}</td>
+        <td>${rev>0?fmt(rev):'—'}</td>
+        <td>${exp>0?fmt(exp):'—'}</td>
+        <td class="${netCls}" style="font-weight:700;">${empty?'—':fmt(net)}</td>
+        <td>${cnt||'—'}</td>
+        <td>${avg>0?fmt(avg):'—'}</td>
+      </tr>`;
+    }).join("");
+    const netTotCls = tNet>=0 ? "an-ytable__pos" : "an-ytable__neg";
+    el.innerHTML = `<div class="an-ytable-wrap"><table class="an-ytable">
+      <thead><tr>
+        <th>Месяц</th><th>Выручка (₸)</th><th>Расходы (₸)</th>
+        <th>Прибыль (₸)</th><th>Брони</th><th>Ср. чек (₸)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td>ИТОГО</td><td>${fmt(tRev)}</td><td>${fmt(tExp)}</td>
+        <td class="${netTotCls}">${fmt(tNet)}</td><td>${tCnt}</td>
+        <td>${tCnt>0?fmt(Math.round(tRev/tCnt)):'—'}</td>
+      </tr></tfoot>
+    </table></div>`;
+  }
 
-      const kpi = data.kpi || {};
-      if (kqToday) kqToday.textContent = fmt(kpi.today) + " ₸";
-      if (kqWeek)  kqWeek.textContent  = fmt(kpi.week)  + " ₸";
-      if (kqMonth) kqMonth.textContent = fmt(kpi.month) + " ₸";
-      if (kqAll)   kqAll.textContent   = fmt(kpi.all_time) + " ₸";
+  // ── Extended KPIs ──
+  function renderExtended(ext) {
+    const set = (id, v) => { const el=$(id); if(el) el.textContent = v; };
+    set("kpPrepay",    fmt(ext.prepayment) + " ₸");
+    set("kpRemaining", fmt(ext.remaining)  + " ₸");
+    set("kpOccupancy", ext.occupancy_rate  + "%");
+    set("kpOccNights", ext.occupied_nights);
+    set("kpPeriodDays",ext.period_days);
+    set("kpUniqueGuests", ext.unique_guests);
+    set("kpReturning",    ext.returning_guests);
+    set("kpAvgNights",    ext.avg_nights + " ночей");
 
-      if (kpRevenue)  kpRevenue.textContent  = fmt(kpi.period);
-      if (kpExpenses) kpExpenses.textContent = fmt(kpi.expenses);
-      if (kpCount)    kpCount.textContent    = String(kpi.bookings_count || 0);
-      if (kpAvg)      kpAvg.textContent      = fmt(kpi.avg_check);
+    // Booking stats mini grid
+    const bsEl = $("bookingStatsGrid");
+    if (bsEl) {
+      bsEl.innerHTML = [
+        { label:"Подтверждено", val: ext.confirmed_count, cls:"green" },
+        { label:"Завершено",    val: ext.completed_count, cls:"blue" },
+        { label:"Запросы",      val: ext.request_count,   cls:"orange" },
+        { label:"Отменено",     val: ext.cancelled_count, cls:"red" },
+        { label:"Оплачено",     val: ext.fully_paid,      cls:"green" },
+        { label:"Частично",     val: ext.partial_paid,    cls:"orange" },
+        { label:"Не оплачено",  val: ext.unpaid,          cls:"red" },
+        { label:"Активных",     val: ext.active_count,    cls:"" },
+      ].map(s => `<div class="an-mini-stat an-mini-stat--${s.cls}">
+        <div class="an-mini-stat__label">${s.label}</div>
+        <div class="an-mini-stat__value">${s.val}</div>
+      </div>`).join("");
+    }
 
-      if (kpNet) {
-        const net = Number(kpi.net_profit || 0);
-        kpNet.textContent = fmt(net);
-        kpNet.className = "an-kpi-card__value" + (net < 0 ? " neg" : "");
-      }
+    // Bookings by month bar chart (from extended monthly)
+    const bmc = $("bookingsByMonthChart");
+    if (bmc && ext.monthly?.length) {
+      drawGroupedChart(bmc, ext.monthly.map(r => monthRu[Number(r.month)]), [
+        { label:"Брони", color:"rgba(14,124,102,.75)", values: ext.monthly.map(r => r.bookings_count) },
+      ]);
+    }
 
-      renderChart(data);
-      renderStatusBreakdown(data.status_breakdown || {});
-      renderYearlyTable(data.chart.monthly, $("anYear")?.value);
-    } catch (e) {
-      showToast("Ошибка загрузки аналитики: " + (e?.message || "нет данных"), "error");
-      const z = "—";
-      if (kqToday)    kqToday.textContent    = z;
-      if (kqWeek)     kqWeek.textContent     = z;
-      if (kqMonth)    kqMonth.textContent    = z;
-      if (kqAll)      kqAll.textContent      = z;
-      if (kpRevenue)  kpRevenue.textContent  = z;
-      if (kpExpenses) kpExpenses.textContent = z;
-      if (kpNet)      kpNet.textContent      = z;
-      if (kpCount)    kpCount.textContent    = z;
-      if (kpAvg)      kpAvg.textContent      = z;
-      if (canvas)     canvas.style.display   = "none";
-      if (chartEmpty) chartEmpty.style.display = "flex";
+    // Payment chart (stacked prepayment vs remaining)
+    const pmc = $("paymentChart");
+    if (pmc && ext.monthly?.length) {
+      drawGroupedChart(pmc, ext.monthly.map(r => monthRu[Number(r.month)]), [
+        { label:"Выручка",  color:"rgba(14,124,102,.7)", values: ext.monthly.map(r => r.revenue) },
+      ]);
+    }
+
+    // Payment status donut
+    const psd = $("payStatusDonut");
+    if (psd) drawDonutChart(psd,
+      [ext.fully_paid, ext.partial_paid, ext.unpaid],
+      ["Оплачено","Частично","Не оплачено"],
+      ["#22c55e","#f59e0b","#ef4444"]
+    );
+    const psEl = $("payStatusStats");
+    if (psEl) {
+      const payTotal = ext.fully_paid + ext.partial_paid + ext.unpaid;
+      psEl.innerHTML = `<div class="an-occ-stats">
+        <div class="an-occ-row"><span class="an-occ-row__label">Оплачено полностью</span><span class="an-occ-row__val" style="color:#22c55e;">${ext.fully_paid}</span></div>
+        <div class="an-occ-row"><span class="an-occ-row__label">Частичная оплата</span><span class="an-occ-row__val" style="color:#f59e0b;">${ext.partial_paid}</span></div>
+        <div class="an-occ-row"><span class="an-occ-row__label">Не оплачено</span><span class="an-occ-row__val" style="color:#ef4444;">${ext.unpaid}</span></div>
+        <div class="an-occ-row" style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px;"><span class="an-occ-row__label">Предоплата</span><span class="an-occ-row__val">${fmt(ext.prepayment)} ₸</span></div>
+        <div class="an-occ-row"><span class="an-occ-row__label">Остаток</span><span class="an-occ-row__val" style="color:#c2410c;">${fmt(ext.remaining)} ₸</span></div>
+      </div>`;
     }
   }
 
-  // Chart toggle
+  // ── Occupancy ──
+  function renderOccupancy(occ) {
+    const oy = $("occupancyYear"); if (oy) oy.textContent = occ.year;
+    const oc = $("occupancyChart");
+    if (oc && occ.monthly?.length) {
+      drawGroupedChart(oc, occ.monthly.map(r => monthRu[Number(r.month)]), [
+        { label:"Занято",   color:"rgba(14,124,102,.75)", values: occ.monthly.map(r => r.occupied_nights) },
+        { label:"Свободно", color:"rgba(226,232,240,.8)", values: occ.monthly.map(r => r.days_in_month - r.occupied_nights) },
+      ]);
+    }
+    const totalOcc  = occ.monthly?.reduce((s,r) => s + r.occupied_nights, 0) || 0;
+    const totalDays = occ.monthly?.reduce((s,r) => s + r.days_in_month,   0) || 0;
+    const pct = totalDays > 0 ? Math.round(totalOcc / totalDays * 100) : 0;
+    const od = $("occupancyDonut");
+    if (od) drawDonutChart(od, [totalOcc, Math.max(0, totalDays-totalOcc)],
+      ["Занято","Свободно"], ["#0E7C66","#e2e8f0"]);
+    const osEl = $("occupancyStats");
+    if (osEl) osEl.innerHTML = `<div class="an-occ-stats">
+      <div class="an-occ-row"><span class="an-occ-row__label">Занятых ночей</span><span class="an-occ-row__val" style="color:#0E7C66;">${totalOcc}</span></div>
+      <div class="an-occ-row"><span class="an-occ-row__label">Свободных ночей</span><span class="an-occ-row__val">${Math.max(0,totalDays-totalOcc)}</span></div>
+      <div class="an-occ-row"><span class="an-occ-row__label">Дней в году</span><span class="an-occ-row__val">${totalDays}</span></div>
+      <div class="an-occ-row" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px;font-size:15px;"><span class="an-occ-row__label" style="font-weight:700;">Загруженность</span><span class="an-occ-row__val" style="color:#0E7C66;font-size:20px;font-weight:900;">${pct}%</span></div>
+    </div>`;
+  }
+
+  // ── Expense breakdown ──
+  function renderExpenses(expData) {
+    const colors = ["#0E7C66","#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b"];
+    const ec = $("expensesChart");
+    if (ec && expData.by_month?.length) {
+      drawGroupedChart(ec, expData.by_month.map(r => r.ym.slice(5)), [
+        { label:"Расходы", color:"rgba(220,104,3,.7)", values: expData.by_month.map(r => r.total) },
+      ]);
+    }
+    const ecd = $("expCatDonut");
+    const top5cats = (expData.by_category || []).slice(0, 8);
+    const catVals   = top5cats.map(c => c.total);
+    const catLabels = top5cats.map(c => c.category);
+    const catColors = top5cats.map((_,i) => colors[i % colors.length]);
+    if (ecd) drawDonutChart(ecd, catVals, catLabels, catColors);
+    const ecl = $("expCatList");
+    if (ecl) {
+      const totalExp = catVals.reduce((s,v) => s+v, 0);
+      ecl.innerHTML = `<div class="an-cat-list">` + top5cats.map((c,i) => {
+        const pct = totalExp > 0 ? Math.round(c.total / totalExp * 100) : 0;
+        return `<div class="an-cat-row">
+          <span class="an-cat-dot" style="background:${colors[i%colors.length]};"></span>
+          <span class="an-cat-name">${c.category}</span>
+          <span class="an-cat-val">${fmt(c.total)} ₸ <span style="opacity:.55;">(${pct}%)</span></span>
+        </div>`;
+      }).join("") + "</div>";
+    }
+  }
+
+  // ── Top guests table ──
+  function renderTopGuests(guestData) {
+    const el = $("topGuestsTable");
+    if (!el) return;
+    const guests = guestData.guests || [];
+    if (!guests.length) {
+      el.innerHTML = `<div class="emptyState" style="padding:20px 0;"><div class="emptyState__icon">👤</div><div class="emptyState__sub">Нет данных о гостях за выбранный период</div></div>`;
+      return;
+    }
+    const rows = guests.map((g, i) => {
+      const badge = g.is_returning
+        ? `<span class="an-badge-ret">Повторный</span>`
+        : `<span class="an-badge-new">Новый</span>`;
+      return `<tr>
+        <td style="font-weight:700;">${i+1}</td>
+        <td><span style="font-weight:600;">${g.full_name}</span></td>
+        <td class="tdMuted">${g.phone || "—"}</td>
+        <td style="text-align:center;">${g.active_bookings}</td>
+        <td style="text-align:right;font-weight:700;color:#15803d;">${fmt(g.total_spent)} ₸</td>
+        <td class="tdMuted" style="text-align:center;">${g.last_visit ? g.last_visit.slice(0,10) : "—"}</td>
+        <td>${badge}</td>
+      </tr>`;
+    }).join("");
+    el.innerHTML = `<div class="tableWrap"><table class="dataTable">
+      <thead><tr>
+        <th>#</th><th>Гость</th><th>Телефон</th>
+        <th style="text-align:center;">Броней</th>
+        <th style="text-align:right;">Сумма (₸)</th>
+        <th style="text-align:center;">Последний визит</th>
+        <th>Тип</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
+
+  // ── Load all data ──
+  async function loadAll() {
+    updatePeriodLabel();
+    const p = buildParams();
+    const qs = p.toString();
+    const year = p.get("year");
+
+    try {
+      // Load main + extended in parallel; occupancy + expenses in parallel after
+      const [mainData, extData] = await Promise.all([
+        apiGet(`/api/analytics?${qs}`),
+        apiGet(`/api/analytics/extended?${qs}`),
+      ]);
+
+      lastMainData = mainData;
+      const kpi = mainData.kpi || {};
+
+      // Row 1 KPIs
+      const s = (id, v) => { const e=$(id); if(e) e.textContent=v; };
+      s("kpRevenue",  fmt(kpi.period)   + " ₸");
+      s("kpExpenses", fmt(kpi.expenses) + " ₸");
+      s("kpCount",    kpi.bookings_count || 0);
+      s("kpAvg",      fmt(kpi.avg_check) + " ₸");
+      s("kqAll",      fmt(kpi.all_time)  + " ₸");
+      s("kqToday",    fmt(kpi.today)     + " ₸");
+      s("kqMonth",    fmt(kpi.month)     + " ₸");
+      s("kqMonth2",   fmt(kpi.month)     + " броней");
+
+      const kpNetEl = $("kpNet");
+      if (kpNetEl) {
+        const net = Number(kpi.net_profit || 0);
+        kpNetEl.textContent = fmt(net) + " ₸";
+        kpNetEl.className = "an-kpi-card__value" + (net < 0 ? " neg" : "");
+      }
+
+      renderMainChart(mainData);
+      renderStatusBreakdown(mainData.status_breakdown || {});
+      renderExtended(extData);
+      renderYearlyTable(extData.monthly, year);
+
+      // Load guests + occupancy + expenses in parallel (non-critical)
+      const [guestData, occData, expData] = await Promise.all([
+        apiGet(`/api/analytics/guests?${qs}`).catch(() => ({ guests: [] })),
+        apiGet(`/api/analytics/occupancy?year=${year}`).catch(() => ({ year, monthly: [] })),
+        apiGet(`/api/analytics/expenses-breakdown?${qs}`).catch(() => ({ by_category:[], by_month:[], biggest:null })),
+      ]);
+
+      renderTopGuests(guestData);
+      renderOccupancy(occData);
+      renderExpenses(expData);
+
+    } catch (e) {
+      showToast("Ошибка загрузки аналитики: " + (e?.message || ""), "error");
+      ["kpRevenue","kpExpenses","kpNet","kpCount","kpAvg","kpPrepay","kpRemaining",
+       "kpOccupancy","kpUniqueGuests","kpReturning","kpAvgNights"].forEach(id => {
+        const el = $(id); if (el) el.textContent = "—";
+      });
+    }
+  }
+
+  // ── Chart toggle ──
   $("btnChartDaily")?.addEventListener("click", () => {
     chartMode = "daily";
     $("btnChartDaily")?.classList.add("an-toggle--active");
     $("btnChartMonthly")?.classList.remove("an-toggle--active");
-    if (lastData) renderChart(lastData);
+    if (lastMainData) renderMainChart(lastMainData);
   });
   $("btnChartMonthly")?.addEventListener("click", () => {
     chartMode = "monthly";
     $("btnChartMonthly")?.classList.add("an-toggle--active");
     $("btnChartDaily")?.classList.remove("an-toggle--active");
-    if (lastData) renderChart(lastData);
+    if (lastMainData) renderMainChart(lastMainData);
   });
 
-  $("btnApplyFilter")?.addEventListener("click", load);
+  $("btnApplyFilter")?.addEventListener("click", loadAll);
   $("btnResetFilter")?.addEventListener("click", () => {
-    const df = $("anDateFrom"); if (df) df.value = "";
-    const dt = $("anDateTo");   if (dt) dt.value = "";
-    const st = $("anStatus");   if (st) st.value = "";
+    if (dfEl) dfEl.value = ""; if (dtEl) dtEl.value = "";
     document.querySelectorAll(".an-pill").forEach(b => b.classList.remove("an-pill--active"));
-    const m = document.querySelector('.an-pill[data-preset="month"]');
-    if (m) { m.classList.add("an-pill--active"); setPreset("month"); } else load();
+    document.querySelector('.an-pill[data-preset="month"]')?.classList.add("an-pill--active");
+    setPreset("month");
   });
 
-  // Exports
-  function downloadUrl(url) {
-    const a = document.createElement("a");
-    a.href = url;
-    a.click();
+  // ── Exports ──
+  function downloadUrl(url) { const a=document.createElement("a"); a.href=url; a.click(); }
+  function exportParams() {
+    const df=dfEl?.value||"", dt=dtEl?.value||"", year=anYearEl?.value||String(new Date().getFullYear());
+    const p=new URLSearchParams(); if(df)p.set("date_from",df); if(dt)p.set("date_to",dt); p.set("year",year);
+    return p.toString();
   }
 
+  $("btnExportFull")?.addEventListener("click", () => {
+    downloadUrl(`/api/export/analytics-full.xlsx?${exportParams()}`);
+    showToast("Скачивается полный отчёт…", "ok");
+  });
   $("btnExportAnalytics")?.addEventListener("click", () => {
-    const df = $("anDateFrom")?.value || "";
-    const dt = $("anDateTo")?.value || "";
-    const year = $("anYear")?.value || String(new Date().getFullYear());
-    const params = new URLSearchParams();
-    if (df) params.set("date_from", df);
-    if (dt) params.set("date_to", dt);
-    params.set("year", year);
-    downloadUrl(`/api/export/analytics.xlsx?${params.toString()}`);
-    showToast("Скачивается отчёт аналитики…", "ok");
+    downloadUrl(`/api/export/analytics.xlsx?${exportParams()}`);
+    showToast("Скачивается аналитика по месяцам…", "ok");
   });
   $("btnExportBookings")?.addEventListener("click", () => {
     downloadUrl("/api/export/bookings.xlsx");
@@ -1740,16 +1924,13 @@ async function initAnalyticsPage() {
     showToast("Скачивается список расходов…", "ok");
   });
 
-  // Redraw on resize
   let resizeTimer;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { if (lastData) renderChart(lastData); }, 150);
+    resizeTimer = setTimeout(() => { if (lastMainData) renderMainChart(lastMainData); }, 150);
   });
 
-  // "Месяц" is pre-marked active in HTML; custom range hidden by default — nothing extra needed
-
-  await load();
+  await loadAll();
 }
 
 // =================== INDEX DASHBOARD LIVE STATS ===================
