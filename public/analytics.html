@@ -64,8 +64,21 @@
       </div>
     </div>
 
+    <!-- Period presets -->
+    <div class="card" style="margin-top:14px;padding:12px 14px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span class="small" style="font-weight:600;color:var(--muted);margin-right:4px;">Период:</span>
+        <button class="secondary presetBtn" data-preset="today" style="width:auto;padding:7px 14px;font-size:13px;">Сегодня</button>
+        <button class="secondary presetBtn" data-preset="week" style="width:auto;padding:7px 14px;font-size:13px;">Эта неделя</button>
+        <button class="secondary presetBtn" data-preset="month" style="width:auto;padding:7px 14px;font-size:13px;">Этот месяц</button>
+        <button class="secondary presetBtn" data-preset="year" style="width:auto;padding:7px 14px;font-size:13px;">Этот год</button>
+        <button class="secondary presetBtn" data-preset="all" style="width:auto;padding:7px 14px;font-size:13px;">Всё время</button>
+        <button class="secondary presetBtn" data-preset="custom" style="width:auto;padding:7px 14px;font-size:13px;">Свой</button>
+      </div>
+    </div>
+
     <!-- Filters -->
-    <div class="card" style="margin-top:14px;">
+    <div class="card" style="margin-top:10px;" id="filterCard">
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
         <div style="flex:1;min-width:140px;">
           <label>Дата с</label>
@@ -74,6 +87,10 @@
         <div style="flex:1;min-width:140px;">
           <label>Дата по</label>
           <input id="anDateTo" type="date" />
+        </div>
+        <div style="flex:1;min-width:100px;">
+          <label>Год (по месяцам)</label>
+          <select id="anYear"></select>
         </div>
         <div style="flex:1;min-width:160px;">
           <label>Статус брони</label>
@@ -198,6 +215,16 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Yearly monthly breakdown table -->
+    <div class="card" style="margin-top:14px;">
+      <h3 style="margin:0 0 12px;">По месяцам — <span id="yearlyTableYear"></span></h3>
+      <div id="yearlyTable">
+        <div class="emptyState" style="padding:24px 0;">
+          <div class="kpiSpin" style="margin:0 auto;"></div>
+        </div>
+      </div>
     </div>
 
     <div style="height:32px;"></div>

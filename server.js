@@ -1167,36 +1167,55 @@ app.get("/api/export/bookings.xlsx", async (req, res) => {
 
 // ========================
 // Excel Export: Guests
-// ========================
 app.get("/api/export/guests.xlsx", async (req, res) => {
   try {
+    console.error("GUESTS EXPORT STARTED");
     const ExcelJS = require("exceljs");
-    const { rows } = await db.query(`SELECT * FROM guests ORDER BY id DESC`);
+    const { rows } = await db.query(`SELECT * FROM guests ORDER BY full_name ASC`);
+    console.error("Guests export rows:", rows?.length);
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "Relax Borovoe CRM";
     const ws = wb.addWorksheet("Гости");
+
     ws.columns = [
-      { header: "ID", key: "id", width: 8 },
-      { header: "ФИО", key: "full_name", width: 30 },
-      { header: "Телефон", key: "phone", width: 20 },
-      { header: "Instagram", key: "instagram", width: 22 },
-      { header: "Заметки", key: "note", width: 40 },
+      { width: 8 },
+      { width: 30 },
+      { width: 20 },
+      { width: 22 },
+      { width: 40 },
     ];
-    ws.getRow(1).font = { bold: true };
-    ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE7F6F2" } };
+
+    ws.mergeCells("A1:E1");
+    const titleRow = ws.getRow(1);
+    titleRow.values = ["Экспорт гостей — Relax Borovoe CRM"];
+    titleRow.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+    titleRow.alignment = { horizontal: "left" };
+    titleRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C66" } };
+
+    ws.getRow(2).values = [`Выгружено: ${new Date().toLocaleString("ru-RU")} • Всего гостей: ${rows.length}`];
+    ws.getRow(2).font = { italic: true, size: 10 };
+
+    ws.getRow(4).values = ["ID", "ФИО", "Телефон", "Instagram", "Заметки"];
+    ws.getRow(4).font = { bold: true, color: { argb: "FFFFFFFF" } };
+    ws.getRow(4).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C66" } };
 
     for (const r of rows) {
-      ws.addRow({ id: r.id, full_name: r.full_name || "", phone: r.phone || "", instagram: r.instagram || "", note: r.note || "" });
+      ws.addRow([r.id ?? "", r.full_name ?? "", r.phone ?? "", r.instagram ?? "", r.note ?? ""]);
     }
 
+    if (rows.length > 0) {
+      ws.autoFilter = `A4:E${4 + rows.length}`;
+    }
+    ws.views = [{ state: "frozen", xSplit: 0, ySplit: 4 }];
+
+    const buffer = await wb.xlsx.writeBuffer();
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="guests_${new Date().toISOString().slice(0,10)}.xlsx"`);
-    await wb.xlsx.write(res);
-    res.end();
+    res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Excel guests error:", err);
-    res.status(500).send("Export error");
+    console.error("GUESTS EXPORT ERROR:", err);
+    if (!res.headersSent) res.status(500).send("Export error");
   }
 });
 
@@ -1291,19 +1310,17 @@ app.get("/api/export/expenses.xlsx", async (req, res) => {
     // Freeze top rows (rows 1-5)
     ws.views = [{ state: "frozen", xSplit: 0, ySplit: 5 }];
 
-    // Add autoFilter (only if data exists)
-    if(rows.length > 0) {
-      ws.autoFilter.from = "A5";
-      ws.autoFilter.to = `E${5 + dataRowCount}`;
+    if (rows.length > 0) {
+      ws.autoFilter = `A5:E${5 + dataRowCount}`;
     }
 
+    const buffer = await wb.xlsx.writeBuffer();
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="expenses_${new Date().toISOString().slice(0,10)}.xlsx"`);
-    await wb.xlsx.write(res);
-    res.end();
+    res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Excel expenses error:", err);
-    res.status(500).send("Export error");
+    console.error("EXPENSES EXPORT ERROR:", err);
+    if (!res.headersSent) res.status(500).send("Export error");
   }
 });
 
@@ -1399,13 +1416,13 @@ app.get("/api/export/analytics.xlsx", async (req, res) => {
       wsD.addRow({ date: ds, revenue: rev, expenses: exp, net: rev - exp });
     }
 
+    const buffer = await wb.xlsx.writeBuffer();
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="analytics_${year}.xlsx"`);
-    await wb.xlsx.write(res);
-    res.end();
+    res.send(Buffer.from(buffer));
   } catch (err) {
-    console.error("❌ Excel analytics error:", err);
-    res.status(500).send("Export error");
+    console.error("ANALYTICS EXPORT ERROR:", err);
+    if (!res.headersSent) res.status(500).send("Export error");
   }
 });
 
