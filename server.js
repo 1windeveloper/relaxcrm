@@ -4,7 +4,7 @@ const path = require("path");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
 
-const { db, initDb, normPhone } = require("./db.js");
+const { db, initDb, waitForDb, normPhone } = require("./db.js");
 
 const app = express();
 app.use(express.json());
@@ -1921,6 +1921,8 @@ process.on("unhandledRejection", (reason) => {
 
 (async () => {
   try {
+    // Wait for Postgres to be ready before creating tables
+    await waitForDb();
     await initDb();
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`✅ Relax Borovoe CRM running on port ${PORT}`);

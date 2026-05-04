@@ -21,8 +21,27 @@ const db = new Pool({
   ssl: useSSL ? { rejectUnauthorized: false } : false,
 });
 
+// Wait until Postgres is ready before doing anything else.
+// Retries up to maxAttempts times with a delay between each try.
+async function waitForDb(maxAttempts = 10, delayMs = 3000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await db.query("SELECT 1"); // simple ping
+      console.log(`✅ Database ready (attempt ${attempt})`);
+      return; // success — exit the loop
+    } catch (err) {
+      console.log(`⏳ DB not ready yet (attempt ${attempt}/${maxAttempts}): ${err.message}`);
+      if (attempt === maxAttempts) {
+        throw new Error("Could not connect to database after " + maxAttempts + " attempts");
+      }
+      // wait before the next try
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function initDb() {
-  await db.query("SELECT 1");
+  // Connection is already confirmed by waitForDb — skip the extra ping
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS guests (
@@ -71,4 +90,4 @@ async function initDb() {
   console.log("✅ Postgres connected + tables + indexes ensured");
 }
 
-module.exports = { db, initDb, normPhone };
+module.exports = { db, initDb, waitForDb, normPhone };
